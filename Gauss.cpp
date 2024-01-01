@@ -1,8 +1,8 @@
 // Gauss.cpp : This file contains the 'main' function. Program execution begins
 // and ends there.
 //
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include "gaussian.h"
 
@@ -12,23 +12,29 @@ bool TestGaussian() {
   VectorXd mu(4);
   mu << 1, 2, 3, 4;
   MatrixXd sigma(4, 4);
-  sigma << 1, -1.63146317635113, 0.48415374753413, 0.612554313174915,
-    -1.63146317635113, 3.66167209578971, -1.99150882300832, -2.98246059182851,
-    0.48415374753413, -1.99150882300832, 2.67831905685275, 2.62385056110414,
-    0.612554313174915, -2.98246059182851, 2.62385056110414, 5.31101099069907;
+  sigma << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    237.757814080695653, 31.6838227860951349, -152.033658539600196,
+    373.530902783367878, -140.279703673223594, 141.409621752763684,
+    237.757814080695653, -140.279703673223594, 827.467631118572399;
   VectorXd x(4);
-  x << -1.30535215719319, 1.74210276800367, -1.27370521036104,
-    0.985230072213369;
+  x << -52.8138247836419055, 167.036008837659296, -254.908653564947315,
+    437.285521520668226;
   x += mu;
   Gaussian g(mu, sigma);
-  auto error = g.Evaluate(x) - (-5.671657285065);
-  if (error < 1.0e-12 && error > -1.0e-12) {
-    std::cout << "TestGaussian OK" << std::endl;
-    return true;
-  } else {
+  auto e = 1.0e-12;
+  auto error = g.Evaluate(x) - (-248.438063922770);
+  if (error < -e || error > e) {
     std::cout << "*** TestGaussian failed" << std::endl;
     return false;
   }
+  error = g.Evaluate(x.head(3)) - (-211.729511486218);
+  if (error < -e || error > e) {
+    std::cout << "*** TestGaussian failed" << std::endl;
+    return false;
+  }
+  std::cout << "TestGaussian OK" << std::endl;
+  return true;
 }
 
 int main() {

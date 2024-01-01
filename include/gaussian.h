@@ -22,19 +22,32 @@ class Gaussian {
   }
 
   void Initialize(const VectorXd& mu, const MatrixXd& sigma) {
-    m_mu = mu;
-    m_llt = LLT<MatrixXd>(sigma);
-    m_c = -0.5 * mu.size() * log(2 * M_PI) - log(m_llt.matrixL().determinant());
+    assert(mu.size() == sigma.rows() && sigma.rows() == sigma.cols());
+    auto llt = LLT<MatrixXd>(sigma);
+    assert(llt.info() == Success);
+    u = mu;
+    L = llt.matrixL();
+    d = VectorXd(mu.size());
+    double c = 0;
+    for (Index i = 0; i < mu.size(); i++) {
+      c += 2 * log(L(i, i));
+      d(i) = c;
+    }
   }
 
   double Evaluate(const VectorXd& x) {
-    return -0.5 * m_llt.matrixL().solve(x - m_mu).squaredNorm() + m_c;
+    auto k = x.size();
+    auto top = L.topLeftCorner(k, k);
+    return -0.5 * (TriangularView<Block<MatrixXd>, Lower>(top)
+                     .solve(x - u.head(k))
+                     .squaredNorm() +
+                   k * log(2 * M_PI) + d(k - 1));
   }
 
- private:
-  VectorXd m_mu;
-  LLT<MatrixXd> m_llt;
-  double m_c = 0;
+ protected:
+  VectorXd u;
+  MatrixXd L;
+  VectorXd d;
 };
 
 }  // namespace gauss
