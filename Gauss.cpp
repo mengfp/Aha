@@ -23,16 +23,40 @@ bool TestGaussian() {
   x += mu;
   Gaussian g(mu, sigma);
   auto e = 1.0e-12;
+
   auto error = g.Evaluate(x) - (-248.438063922770);
   if (error < -e || error > e) {
     std::cout << "*** TestGaussian failed" << std::endl;
     return false;
   }
-  error = g.Evaluate(x.head(3)) - (-211.729511486218);
+
+  error = g.PartialEvaluate(x.head(3)) - (-211.729511486218);
   if (error < -e || error > e) {
     std::cout << "*** TestGaussian failed" << std::endl;
     return false;
   }
+
+  VectorXd y;
+  error = g.Predict(x.head(2), y) - (-190.01885211864618);
+  if (error < -e || error > e) {
+    std::cout << "*** TestGaussian failed" << std::endl;
+    return false;
+  }
+
+  y -= mu.tail(2);
+
+  error = y(0) - (-315.71841551378759);
+  if (error < -e || error > e) {
+    std::cout << "*** TestGaussian failed" << std::endl;
+    return false;
+  }
+
+  error = y(1) - (278.644584795271271);
+  if (error < -e || error > e) {
+    std::cout << "*** TestGaussian failed" << std::endl;
+    return false;
+  }
+  
   std::cout << "TestGaussian OK" << std::endl;
   return true;
 }
