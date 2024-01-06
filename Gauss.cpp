@@ -3,7 +3,6 @@
 //
 #include <iomanip>
 #include <iostream>
-
 #include "gaussian.h"
 
 using namespace gauss;
