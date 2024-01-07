@@ -14,8 +14,8 @@ std::string Version() {
          "." + std::to_string(REVISION);
 }
 
-Model::Model() {
-  p = new Mixture();
+Model::Model(int rank, int dim) {
+  p = new Mixture(rank, dim);
 }
 
 Model::~Model() {
@@ -30,7 +30,7 @@ int Model::Rank() const {
   return ((Mixture*)p)->Rank();
 }
 
-int Model::Dimension() const {
+int Model::Dim() const {
   return ((Mixture*)p)->Dim();
 }
 

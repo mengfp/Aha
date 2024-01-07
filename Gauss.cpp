@@ -86,8 +86,8 @@ bool TestTrain() {
   const int rank = 3;
   const int dim = 3;
 
-  Mixture mix;
-  Trainer train(mix, rank, dim);
+  Mixture mix(rank, dim);
+  Trainer train(mix);
   Generator gen;
   Vector sample = Vector::Zero(dim);
 

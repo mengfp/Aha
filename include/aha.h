@@ -10,11 +10,11 @@ std::string Version();
 
 class Model {
  public:
-  Model();
+  Model(int rank, int dim);
   ~Model();
   bool Initialized() const;
   int Rank() const;
-  int Dimension() const;
+  int Dim() const;
   std::vector<double> Predict(const std::vector<double>& x) const;
   std::vector<double> Export() const;
   bool Import(const std::vector<double>& model);
@@ -24,8 +24,11 @@ class Model {
 };
 
 class Trainer {
+ public:
+  Trainer(Model& model);
+  void Initialize();
 
-private:
+ private:
   void* p;
 };
 

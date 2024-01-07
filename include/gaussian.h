@@ -82,7 +82,7 @@ class Gaussian {
 
 class Mixture {
  public:
-  Mixture() {
+  Mixture(int rank, int dim) : rank(rank), dim(dim) {
   }
 
   bool Initialized() {
@@ -90,62 +90,61 @@ class Mixture {
   }
 
   int Rank() const {
-    return (int)gaussians.size();
+    return rank;
   }
 
   int Dim() const {
-    if (gaussians.empty()) {
-      return 0;
-    } else {
-      return gaussians[0].Dim();
-    }
+    return dim;
   }
 
   void Initialize(const std::vector<double>& weights,
                   const std::vector<Vector>& means,
                   const std::vector<Matrix>& covariances) {
-    assert(weights.size() == means.size());
-    assert(means.size() == covariances.size());
+    assert(weights.size() == rank);
+    assert(means.size() == rank);
+    assert(covariances.size() == rank);
     this->weights = weights;
-    gaussians.resize(weights.size());
-    for (int i = 0; i < (int)gaussians.size(); i++) {
+    gaussians.resize(rank);
+    for (int i = 0; i < rank; i++) {
       gaussians[i].Initialize(means[i], covariances[i]);
     }
   }
 
   double Evaluate(const Vector& x, std::vector<double>& w) const {
-    assert(w.size() == gaussians.size());
+    assert(x.size() == dim);
+    assert(w.size() == rank);
     double wmax = -DBL_MAX;
-    for (int i = 0; i < (int)w.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       w[i] = gaussians[i].Evaluate(x);
       if (w[i] > wmax) {
         wmax = w[i];
       }
     }
     double sum = 0;
-    for (int i = 0; i < w.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       w[i] = weights[i] * exp(w[i] - wmax);
       sum += w[i];
     }
-    for (int i = 0; i < w.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       w[i] /= sum;
     }
     return log(sum) + wmax;
   }
 
   double Predict(const Vector& x, Vector& y) const {
+    assert(x.size() <= dim);
     double wmax = -DBL_MAX;
-    std::vector<Vector> v(Rank());
-    std::vector<double> w(Rank());
-    for (int i = 0; i < Rank(); i++) {
+    std::vector<Vector> v(rank);
+    std::vector<double> w(rank);
+    for (int i = 0; i < rank; i++) {
       w[i] = gaussians[i].Predict(x, v[i]);
       if (w[i] > wmax) {
         wmax = w[i];
       }
     }
     double sum = 0;
-    y = Vector::Zero(Dim() - x.size());
-    for (int i = 0; i < Rank(); i++) {
+    y = Vector::Zero(dim - x.size());
+    for (int i = 0; i < rank; i++) {
       auto temp = weights[i] * exp(w[i] - wmax);
       y += temp * v[i];
       sum += temp;
@@ -154,6 +153,8 @@ class Mixture {
   }
 
  protected:
+  int rank;
+  int dim;
   std::vector<double> weights;
   std::vector<Gaussian> gaussians;
 };
@@ -169,17 +170,6 @@ class Trainer {
       means(mixture.Rank()),
       covariances(mixture.Rank()),
       temp(mixture.Rank()) {
-  }
-
-  Trainer(Mixture& mixture, int rank, int dim)
-    : mixture(mixture),
-      rank(rank),
-      dim(dim),
-      score(0),
-      weights(rank),
-      means(rank),
-      covariances(rank),
-      temp(rank) {
   }
 
   void Initialize() {
