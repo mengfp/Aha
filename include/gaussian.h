@@ -127,6 +127,26 @@ class Mixture {
     return log(sum) + wmax;
   }
 
+  double Predict(const Vector& x, Vector& y) {
+    double wmax = -DBL_MAX;
+    std::vector<Vector> v(Rank());
+    std::vector<double> w(Rank());
+    for (int i = 0; i < Rank(); i++) {
+      w[i] = gaussians[i].Predict(x, v[i]);
+      if (w[i] > wmax) {
+        wmax = w[i];
+      }
+    }
+    double sum = 0;
+    y = Vector::Zero(Dim() - x.size());
+    for (int i = 0; i < Rank(); i++) {
+      auto temp = weights[i] * exp(w[i] - wmax);
+      y += temp * v[i];
+      sum += temp;
+    }
+    return log(sum) + wmax;
+  }
+
  protected:
   std::vector<double> weights;
   std::vector<Gaussian> gaussians;
