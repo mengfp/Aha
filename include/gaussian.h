@@ -166,11 +166,11 @@ class Trainer {
 
   void Train(const Vector& sample) {
     score += mixture->Evaluate(sample, temp);
-    auto quadric = sample * sample.transpose();
+    Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
     for (int i = 0; i < (int)weights.size(); i++) {
       weights[i] += temp[i];
       means[i] += sample * temp[i];
-      covariances[i] += quadric * temp[i];
+      covariances[i] += (quadric * temp[i]).selfadjointView<Lower>();
     }
   }
 
@@ -180,7 +180,7 @@ class Trainer {
     for (int i = 0; i < (int)weights.size(); i++) {
       weights[i] += trainer.weights[i];
       means[i] += trainer.means[i];
-      covariances[i] += trainer.covariances[i];
+      covariances[i] += (trainer.covariances[i]).selfadjointView<Lower>();
     }
   }
 
@@ -192,8 +192,9 @@ class Trainer {
     score /= s;
     for (int i = 0; i < (int)weights.size(); i++) {
       means[i] /= weights[i];
-      auto sigma =
-        covariances[i] / weights[i] - means[i] * means[i].transpose();
+      covariances[i] =
+        (covariances[i] / weights[i] - means[i] * means[i].transpose())
+          .selfadjointView<Lower>();
       weights[i] /= s;
     }
   }
@@ -212,6 +213,14 @@ class Trainer {
 
   const std::vector<Matrix>& Covariances() const {
     return covariances;
+  }
+
+  void Print() {
+    for (int i = 0; i < (int)weights.size(); i++) {
+      std::cout << i << ": " << weights[i] << "\n";
+      std::cout << "mean:\n" << means[i] << "\n";
+      std::cout << "sigma:\n" << covariances[i] << "\n";
+    }
   }
 
  protected:

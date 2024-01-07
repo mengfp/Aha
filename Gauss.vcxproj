@@ -82,6 +82,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\gaussian.h" />
+    <ClInclude Include="include\generator.h" />
+    <ClInclude Include="include\MersenneTwister.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -3,9 +3,11 @@
 //
 #include <iomanip>
 #include <iostream>
-#include "gaussian.h"
 
-using namespace gauss;
+#include "gaussian.h"
+#include "generator.h"
+
+namespace gauss {
 
 bool TestGaussian() {
   VectorXd mu(4);
@@ -55,11 +57,75 @@ bool TestGaussian() {
     std::cout << "*** TestGaussian failed" << std::endl;
     return false;
   }
-  
+
   std::cout << "TestGaussian OK" << std::endl;
   return true;
 }
 
+bool TestRand() {
+  const int N = 1000000;
+  double mean = 0;
+  double var = 0;
+  MTRand rand(uint32_t(1));
+  for (int i = 0; i < N; i++) {
+    auto x = rand.randNorm(0.0, 1.0);
+    mean += x;
+    var += x * x;
+  }
+  mean /= N;
+  var = var / N - mean * mean;
+  std::cout << "TestRand: "
+            << "mean = " << mean << ", var = " << var << std::endl;
+  return true;
+}
+
+bool TestTrain() {
+  const int N = 1000000;
+  const int seed = 1;
+  const int rank = 3;
+  const int dim = 3;
+  Trainer train;
+  train.Initialize(rank, dim);
+
+  Generator gen;
+  gen.Init(rank, dim, seed);
+  Vector sample = Vector::Zero(dim);
+  for (int i = 0; i < N; i++) {
+    gen.Gen(sample);
+    train.PreTrain(sample);
+  }
+  train.Finalize();
+
+  Mixture mix;
+  mix.Initialize(train.Weights(), train.Means(), train.Covariances());
+  for (int k = 0; k < 10; k++) {
+    gen.Init(rank, dim, seed);
+    train.Initialize(mix);
+    for (int i = 0; i < N; i++) {
+      gen.Gen(sample);
+      train.Train(sample);    
+    }
+    train.Finalize();
+    mix.Initialize(train.Weights(), train.Means(), train.Covariances());
+    std::cout << "Score = " << train.Score() << std::endl;
+  }
+
+  std::cout << "Generator:" << std::endl;
+  gen.Print();
+  std::cout << std::endl;
+  std::cout << "Trainer:" << std::endl;
+  train.Print();
+  std::cout << std::endl;
+
+  return true;
+}
+
+}  // namespace gauss
+
+using namespace gauss;
 int main() {
   TestGaussian();
+  TestRand();
+  TestTrain();
+  return 0;
 }
