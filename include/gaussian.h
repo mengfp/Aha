@@ -2,6 +2,8 @@
 #define GAUSS_GAUSSION_H
 
 #include <cassert>
+#include <iostream>
+#include <vector>
 
 #pragma warning(disable : 4819)
 #include <Eigen>
@@ -83,6 +85,10 @@ class Mixture {
   Mixture() {
   }
 
+  bool Initialized() {
+    return gaussians.size() > 0;
+  }
+
   int Rank() const {
     return (int)gaussians.size();
   }
@@ -127,7 +133,7 @@ class Mixture {
     return log(sum) + wmax;
   }
 
-  double Predict(const Vector& x, Vector& y) {
+  double Predict(const Vector& x, Vector& y) const {
     double wmax = -DBL_MAX;
     std::vector<Vector> v(Rank());
     std::vector<double> w(Rank());
@@ -154,14 +160,30 @@ class Mixture {
 
 class Trainer {
  public:
-  void Initialize(int rank, int dim) {
-    assert(rank > 0);
-    assert(dim > 0);
+  Trainer(Mixture& mixture)
+    : mixture(mixture),
+      rank(mixture.Rank()),
+      dim(mixture.Dim()),
+      score(0),
+      weights(mixture.Rank()),
+      means(mixture.Rank()),
+      covariances(mixture.Rank()),
+      temp(mixture.Rank()) {
+  }
+
+  Trainer(Mixture& mixture, int rank, int dim)
+    : mixture(mixture),
+      rank(rank),
+      dim(dim),
+      score(0),
+      weights(rank),
+      means(rank),
+      covariances(rank),
+      temp(rank) {
+  }
+
+  void Initialize() {
     score = 0;
-    weights.resize(rank);
-    means.resize(rank);
-    covariances.resize(rank);
-    temp.resize(rank);
     for (int i = 0; i < rank; i++) {
       weights[i] = 0;
       means[i] = Vector::Zero(dim);
@@ -170,73 +192,64 @@ class Trainer {
     }
   }
 
-  void Initialize(const Mixture& mix) {
-    mixture = &mix;
-    Initialize(mix.Rank(), mix.Dim());
-  }
-
-  void PreTrain(const Vector& sample) {
-    auto var = sample.array().square();
-    for (int i = 0; i < (int)weights.size(); i++) {
-      weights[i] += 1.0 / weights.size();
-      means[i] += sample / weights.size();
-      covariances[i].diagonal() += var.matrix() * ((i + 1.0) / weights.size());
-    }
-  }
-
   void Train(const Vector& sample) {
-    score += mixture->Evaluate(sample, temp);
-    Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
-    for (int i = 0; i < (int)weights.size(); i++) {
-      weights[i] += temp[i];
-      means[i] += sample * temp[i];
-      covariances[i] += (quadric * temp[i]).selfadjointView<Lower>();
+    if (mixture.Initialized()) {
+      score += mixture.Evaluate(sample, temp);
+      Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
+      for (int i = 0; i < rank; i++) {
+        weights[i] += temp[i];
+        means[i] += sample * temp[i];
+        covariances[i] += (quadric * temp[i]).selfadjointView<Lower>();
+      }
+    } else {
+      auto var = sample.array().square();
+      for (int i = 0; i < rank; i++) {
+        weights[i] += 1.0 / rank;
+        means[i] += sample / rank;
+        covariances[i].diagonal() += var.matrix() * ((i + 1.0) / rank);
+      }
     }
   }
 
   void Merge(const Trainer& trainer) {
-    assert(mixture == trainer.mixture);
     score += trainer.score;
-    for (int i = 0; i < (int)weights.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       weights[i] += trainer.weights[i];
       means[i] += trainer.means[i];
       covariances[i] += (trainer.covariances[i]).selfadjointView<Lower>();
     }
   }
 
-  void Finalize() {
+  void Update() {
     double s = 0;
     for (auto& w : weights) {
       s += w;
     }
     score /= s;
-    for (int i = 0; i < (int)weights.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       means[i] /= weights[i];
       covariances[i] =
         (covariances[i] / weights[i] - means[i] * means[i].transpose())
           .selfadjointView<Lower>();
       weights[i] /= s;
     }
+    mixture.Initialize(weights, means, covariances);
+  }
+
+  int Rank() const {
+    return rank;
+  }
+
+  int Dim() const {
+    return dim;
   }
 
   double Score() const {
     return score;
   }
 
-  const std::vector<double>& Weights() const {
-    return weights;
-  }
-
-  const std::vector<Vector>& Means() const {
-    return means;
-  }
-
-  const std::vector<Matrix>& Covariances() const {
-    return covariances;
-  }
-
   void Print() {
-    for (int i = 0; i < (int)weights.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
       std::cout << "mean:\n" << means[i] << "\n";
       std::cout << "sigma:\n" << covariances[i] << "\n";
@@ -244,8 +257,10 @@ class Trainer {
   }
 
  protected:
-  const Mixture* mixture = nullptr;
-  double score = 0;
+  Mixture& mixture;
+  int rank;
+  int dim;
+  double score;
   std::vector<double> weights;
   std::vector<Vector> means;
   std::vector<Matrix> covariances;

@@ -9,7 +9,7 @@ namespace gauss {
 
 class Generator {
  public:
-  void Init(int rank, int dim, uint32_t seed) {
+  void Initialize(int rank, int dim, uint32_t seed) {
     rand.seed(seed);
     weights.resize(rank);
     means.resize(rank);

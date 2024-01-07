@@ -1,0 +1,9 @@
+#ifndef GAUSS_VERSION_H
+#define GAUSS_VERSION_H
+
+#define MAGIC_NUMBER 0x4B17B336
+#define MAJOR_VERSION 1
+#define MINOR_VERSION 0
+#define REVISION 0
+
+#endif

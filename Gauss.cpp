@@ -6,6 +6,7 @@
 
 #include "gaussian.h"
 #include "generator.h"
+#include "aha.h"
 
 namespace gauss {
 
@@ -84,29 +85,20 @@ bool TestTrain() {
   const int seed = 1;
   const int rank = 3;
   const int dim = 3;
-  Trainer train;
-  train.Initialize(rank, dim);
-
-  Generator gen;
-  gen.Init(rank, dim, seed);
-  Vector sample = Vector::Zero(dim);
-  for (int i = 0; i < N; i++) {
-    gen.Gen(sample);
-    train.PreTrain(sample);
-  }
-  train.Finalize();
 
   Mixture mix;
-  mix.Initialize(train.Weights(), train.Means(), train.Covariances());
+  Trainer train(mix, rank, dim);
+  Generator gen;
+  Vector sample = Vector::Zero(dim);
+
   for (int k = 0; k < 10; k++) {
-    gen.Init(rank, dim, seed);
-    train.Initialize(mix);
+    gen.Initialize(rank, dim, seed);
+    train.Initialize();
     for (int i = 0; i < N; i++) {
       gen.Gen(sample);
       train.Train(sample);    
     }
-    train.Finalize();
-    mix.Initialize(train.Weights(), train.Means(), train.Covariances());
+    train.Update();
     std::cout << "Score = " << train.Score() << std::endl;
   }
 
@@ -123,9 +115,17 @@ bool TestTrain() {
 }  // namespace gauss
 
 using namespace gauss;
+
+
+bool TestAha() {
+  std::cout << "Version: " << aha::Version() << std::endl;
+  return true;
+}
+
 int main() {
   TestGaussian();
   TestRand();
   TestTrain();
+  TestAha();
   return 0;
 }
