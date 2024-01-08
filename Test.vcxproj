@@ -16,6 +16,7 @@
     <ProjectGuid>{fb10ef0b-f516-4023-ab01-f82598b307f7}</ProjectGuid>
     <RootNamespace>Gauss</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Test</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -83,11 +84,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Gauss.cpp" />
+    <ClCompile Include="test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\aha.h" />
-    <ClInclude Include="include\gaussian.h" />
+    <ClInclude Include="include\defs.h" />
+    <ClInclude Include="include\model.h" />
     <ClInclude Include="include\generator.h" />
     <ClInclude Include="include\MersenneTwister.h" />
     <ClInclude Include="include\version.h" />

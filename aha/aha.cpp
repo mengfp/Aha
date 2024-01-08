@@ -1,6 +1,6 @@
 #include "aha.h"
 #include "version.h"
-#include "gaussian.h"
+#include "model.h"
 
 namespace aha {
 

@@ -12,8 +12,7 @@
 #define M_PI 3.1415926535897932384626
 #endif
 
-#define Vector VectorXd
-#define Matrix MatrixXd
+#include "defs.h"
 
 using namespace Eigen;
 
