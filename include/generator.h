@@ -5,8 +5,6 @@
 #include "MersenneTwister.h"
 #include "gaussian.h"
 
-namespace gauss {
-
 class Generator {
  public:
   void Initialize(int rank, int dim, uint32_t seed) {
@@ -67,7 +65,4 @@ class Generator {
   MTRand rand;
 };
 
-}  // namespace gauss
-
 #endif
-

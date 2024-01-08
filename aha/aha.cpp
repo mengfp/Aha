@@ -4,11 +4,6 @@
 
 namespace aha {
 
-using namespace gauss;
-using namespace Eigen;
-using Vector = VectorXd;
-using Matrix = MatrixXd;
-
 std::string Version() {
   return std::to_string(MAJOR_VERSION) + "." + std::to_string(MINOR_VERSION) +
          "." + std::to_string(REVISION);
@@ -46,7 +41,7 @@ std::vector<double> Model::Export() const {
 }
 
 bool Model::Import(const std::vector<double>& model) {
-  return true;
+  return false;
 }
 
 }  // namespace aha

@@ -12,11 +12,10 @@
 #define M_PI 3.1415926535897932384626
 #endif
 
-namespace gauss {
+#define Vector VectorXd
+#define Matrix MatrixXd
 
 using namespace Eigen;
-using Vector = VectorXd;
-using Matrix = MatrixXd;
 
 class Gaussian {
  public:
@@ -256,7 +255,5 @@ class Trainer {
   std::vector<Matrix> covariances;
   std::vector<double> temp;
 };
-
-}  // namespace gauss
 
 #endif

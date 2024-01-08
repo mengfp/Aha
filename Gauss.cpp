@@ -8,8 +8,6 @@
 #include "generator.h"
 #include "aha.h"
 
-namespace gauss {
-
 bool TestGaussian() {
   VectorXd mu(4);
   mu << 1, 2, 3, 4;
@@ -111,11 +109,6 @@ bool TestTrain() {
 
   return true;
 }
-
-}  // namespace gauss
-
-using namespace gauss;
-
 
 bool TestAha() {
   std::cout << "Version: " << aha::Version() << std::endl;
