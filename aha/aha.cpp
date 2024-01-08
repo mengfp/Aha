@@ -1,6 +1,7 @@
 #include "aha.h"
-#include "version.h"
+
 #include "model.h"
+#include "version.h"
 
 namespace aha {
 
@@ -42,6 +43,38 @@ std::vector<double> Model::Export() const {
 
 bool Model::Import(const std::vector<double>& model) {
   return false;
+}
+
+Trainer::Trainer(Model& model) {
+  p = new ::Trainer(*(Mixture*)*(void**)&model);
+}
+
+Trainer::~Trainer() {
+  delete (::Trainer*)p;
+}
+
+int Trainer::Rank() const {
+  return ((::Trainer*)p)->Rank();
+}
+
+int Trainer::Dim() const {
+  return ((::Trainer*)p)->Dim();
+}
+
+double Trainer::Score() const {
+  return ((::Trainer*)p)->Score();
+}
+
+void Trainer::Initialize() {
+  ((::Trainer*)p)->Initialize();
+}
+
+void Trainer::Merge(const Trainer& trainer) {
+  ((::Trainer*)p)->Merge(*(const ::Trainer*)*(void**)&trainer);
+}
+
+void Trainer::Update() {
+  ((::Trainer*)p)->Update();
 }
 
 }  // namespace aha

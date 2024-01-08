@@ -111,6 +111,8 @@ bool TestTrain() {
 
 bool TestAha() {
   std::cout << "Version: " << aha::Version() << std::endl;
+  aha::Model model(3, 3);
+  aha::Trainer trainer(model);
   return true;
 }
 

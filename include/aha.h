@@ -1,8 +1,8 @@
 #ifndef AHA_AHA_H
 #define AHA_AHA_H
 
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace aha {
 
@@ -26,7 +26,13 @@ class Model {
 class Trainer {
  public:
   Trainer(Model& model);
+  ~Trainer();
+  int Rank() const;
+  int Dim() const;
+  double Score() const;
   void Initialize();
+  void Merge(const Trainer& trainer);
+  void Update();
 
  private:
   void* p;
