@@ -16,8 +16,8 @@ class Model {
   int Rank() const;
   int Dim() const;
   double Predict(const std::vector<double>& x, std::vector<double>& y) const;
-  bool Export(std::vector<double>& model) const;
-  bool Import(const std::vector<double>& model);
+  bool Export(std::vector<char>& model) const;
+  bool Import(const std::vector<char>& model);
 
  private:
   void* p;

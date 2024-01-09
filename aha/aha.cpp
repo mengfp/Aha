@@ -38,11 +38,11 @@ double Model::Predict(const std::vector<double>& x, std::vector<double>& y) cons
   return r;
 }
 
-bool Model::Export(std::vector<double>& model) const {
+bool Model::Export(std::vector<char>& model) const {
   return false;
 }
 
-bool Model::Import(const std::vector<double>& model) {
+bool Model::Import(const std::vector<char>& model) {
   return false;
 }
 
