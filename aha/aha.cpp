@@ -62,8 +62,8 @@ int Trainer::Dim() const {
   return ((trainer*)p)->Dim();
 }
 
-double Trainer::Score() const {
-  return ((trainer*)p)->Score();
+double Trainer::Entropy() const {
+  return ((trainer*)p)->Entropy();
 }
 
 void Trainer::Initialize() {

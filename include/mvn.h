@@ -163,7 +163,7 @@ class trainer {
     : m(m),
       rank(m.Rank()),
       dim(m.Dim()),
-      score(0),
+      entropy(0),
       weights(m.Rank()),
       means(m.Rank()),
       covs(m.Rank()),
@@ -171,7 +171,7 @@ class trainer {
   }
 
   void Initialize() {
-    score = 0;
+    entropy = 0;
     for (int i = 0; i < rank; i++) {
       weights[i] = 0;
       means[i] = Vector::Zero(dim);
@@ -182,7 +182,7 @@ class trainer {
 
   void Train(const Vector& sample) {
     if (m.Initialized()) {
-      score += m.Evaluate(sample, temp);
+      entropy -= m.Evaluate(sample, temp);
       Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
         weights[i] += temp[i];
@@ -200,7 +200,7 @@ class trainer {
   }
 
   void Merge(const trainer& trainer) {
-    score += trainer.score;
+    entropy += trainer.entropy;
     for (int i = 0; i < rank; i++) {
       weights[i] += trainer.weights[i];
       means[i] += trainer.means[i];
@@ -213,7 +213,7 @@ class trainer {
     for (auto& w : weights) {
       s += w;
     }
-    score /= s;
+    entropy /= s;
     for (int i = 0; i < rank; i++) {
       means[i] /= weights[i];
       covs[i] =
@@ -232,8 +232,8 @@ class trainer {
     return dim;
   }
 
-  double Score() const {
-    return score;
+  double Entropy() const {
+    return entropy;
   }
 
   void Print() {
@@ -248,7 +248,7 @@ class trainer {
   mix& m;
   int rank;
   int dim;
-  double score;
+  double entropy;
   std::vector<double> weights;
   std::vector<Vector> means;
   std::vector<Matrix> covs;

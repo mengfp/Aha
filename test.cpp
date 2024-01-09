@@ -96,7 +96,7 @@ bool TestTrain() {
       train.Train(sample);    
     }
     train.Update();
-    std::cout << "Score = " << train.Score() << std::endl;
+    std::cout << "Entropy = " << train.Entropy() << std::endl;
   }
 
   std::cout << "Generator:" << std::endl;

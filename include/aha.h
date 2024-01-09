@@ -29,7 +29,7 @@ class Trainer {
   ~Trainer();
   int Rank() const;
   int Dim() const;
-  double Score() const;
+  double Entropy() const;
   void Initialize();
   void Merge(const Trainer& t);
   void Update();
