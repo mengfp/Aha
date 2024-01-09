@@ -3,7 +3,7 @@
 
 #include <vector>
 #include "MersenneTwister.h"
-#include "model.h"
+#include "mvn.h"
 
 class Generator {
  public:

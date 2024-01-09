@@ -15,8 +15,8 @@ class Model {
   bool Initialized() const;
   int Rank() const;
   int Dim() const;
-  std::vector<double> Predict(const std::vector<double>& x) const;
-  std::vector<double> Export() const;
+  double Predict(const std::vector<double>& x, std::vector<double>& y) const;
+  bool Export(std::vector<double>& model) const;
   bool Import(const std::vector<double>& model);
 
  private:
@@ -25,13 +25,13 @@ class Model {
 
 class Trainer {
  public:
-  Trainer(Model& model);
+  Trainer(Model& m);
   ~Trainer();
   int Rank() const;
   int Dim() const;
   double Score() const;
   void Initialize();
-  void Merge(const Trainer& trainer);
+  void Merge(const Trainer& t);
   void Update();
 
  private:

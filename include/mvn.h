@@ -12,16 +12,16 @@
 #define M_PI 3.1415926535897932384626
 #endif
 
-#include "defs.h"
-
 using namespace Eigen;
+#define Vector VectorXd
+#define Matrix MatrixXd
 
-class Gaussian {
+class mvn {
  public:
-  Gaussian() {
+  mvn() {
   }
 
-  Gaussian(const Vector& mu, const Matrix& sigma) {
+  mvn(const Vector& mu, const Matrix& sigma) {
     Initialize(mu, sigma);
   }
 
@@ -78,13 +78,13 @@ class Gaussian {
   Vector d;
 };
 
-class Mixture {
+class mix {
  public:
-  Mixture(int rank, int dim) : rank(rank), dim(dim) {
+  mix(int rank, int dim) : rank(rank), dim(dim) {
   }
 
   bool Initialized() {
-    return gaussians.size() > 0;
+    return cores.size() > 0;
   }
 
   int Rank() const {
@@ -97,14 +97,14 @@ class Mixture {
 
   void Initialize(const std::vector<double>& weights,
                   const std::vector<Vector>& means,
-                  const std::vector<Matrix>& covariances) {
+                  const std::vector<Matrix>& covs) {
     assert(weights.size() == rank);
     assert(means.size() == rank);
-    assert(covariances.size() == rank);
+    assert(covs.size() == rank);
     this->weights = weights;
-    gaussians.resize(rank);
+    cores.resize(rank);
     for (int i = 0; i < rank; i++) {
-      gaussians[i].Initialize(means[i], covariances[i]);
+      cores[i].Initialize(means[i], covs[i]);
     }
   }
 
@@ -113,7 +113,7 @@ class Mixture {
     assert(w.size() == rank);
     double wmax = -DBL_MAX;
     for (int i = 0; i < rank; i++) {
-      w[i] = gaussians[i].Evaluate(x);
+      w[i] = cores[i].Evaluate(x);
       if (w[i] > wmax) {
         wmax = w[i];
       }
@@ -135,7 +135,7 @@ class Mixture {
     std::vector<Vector> v(rank);
     std::vector<double> w(rank);
     for (int i = 0; i < rank; i++) {
-      w[i] = gaussians[i].Predict(x, v[i]);
+      w[i] = cores[i].Predict(x, v[i]);
       if (w[i] > wmax) {
         wmax = w[i];
       }
@@ -154,20 +154,20 @@ class Mixture {
   int rank;
   int dim;
   std::vector<double> weights;
-  std::vector<Gaussian> gaussians;
+  std::vector<mvn> cores;
 };
 
-class Trainer {
+class trainer {
  public:
-  Trainer(Mixture& mixture)
-    : mixture(mixture),
-      rank(mixture.Rank()),
-      dim(mixture.Dim()),
+  trainer(mix& m)
+    : m(m),
+      rank(m.Rank()),
+      dim(m.Dim()),
       score(0),
-      weights(mixture.Rank()),
-      means(mixture.Rank()),
-      covariances(mixture.Rank()),
-      temp(mixture.Rank()) {
+      weights(m.Rank()),
+      means(m.Rank()),
+      covs(m.Rank()),
+      temp(m.Rank()) {
   }
 
   void Initialize() {
@@ -175,36 +175,36 @@ class Trainer {
     for (int i = 0; i < rank; i++) {
       weights[i] = 0;
       means[i] = Vector::Zero(dim);
-      covariances[i] = Matrix::Zero(dim, dim);
+      covs[i] = Matrix::Zero(dim, dim);
       temp[i] = 0;
     }
   }
 
   void Train(const Vector& sample) {
-    if (mixture.Initialized()) {
-      score += mixture.Evaluate(sample, temp);
+    if (m.Initialized()) {
+      score += m.Evaluate(sample, temp);
       Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
         weights[i] += temp[i];
         means[i] += sample * temp[i];
-        covariances[i] += (quadric * temp[i]).selfadjointView<Lower>();
+        covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
       }
     } else {
       auto var = sample.array().square();
       for (int i = 0; i < rank; i++) {
         weights[i] += 1.0 / rank;
         means[i] += sample / rank;
-        covariances[i].diagonal() += var.matrix() * ((i + 1.0) / rank);
+        covs[i].diagonal() += var.matrix() * ((i + 1.0) / rank);
       }
     }
   }
 
-  void Merge(const Trainer& trainer) {
+  void Merge(const trainer& trainer) {
     score += trainer.score;
     for (int i = 0; i < rank; i++) {
       weights[i] += trainer.weights[i];
       means[i] += trainer.means[i];
-      covariances[i] += (trainer.covariances[i]).selfadjointView<Lower>();
+      covs[i] += (trainer.covs[i]).selfadjointView<Lower>();
     }
   }
 
@@ -216,12 +216,12 @@ class Trainer {
     score /= s;
     for (int i = 0; i < rank; i++) {
       means[i] /= weights[i];
-      covariances[i] =
-        (covariances[i] / weights[i] - means[i] * means[i].transpose())
+      covs[i] =
+        (covs[i] / weights[i] - means[i] * means[i].transpose())
           .selfadjointView<Lower>();
       weights[i] /= s;
     }
-    mixture.Initialize(weights, means, covariances);
+    m.Initialize(weights, means, covs);
   }
 
   int Rank() const {
@@ -240,18 +240,18 @@ class Trainer {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
       std::cout << "mean:\n" << means[i] << "\n";
-      std::cout << "sigma:\n" << covariances[i] << "\n";
+      std::cout << "sigma:\n" << covs[i] << "\n";
     }
   }
 
  protected:
-  Mixture& mixture;
+  mix& m;
   int rank;
   int dim;
   double score;
   std::vector<double> weights;
   std::vector<Vector> means;
-  std::vector<Matrix> covariances;
+  std::vector<Matrix> covs;
   std::vector<double> temp;
 };
 

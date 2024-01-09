@@ -1,6 +1,6 @@
 #include "aha.h"
 
-#include "model.h"
+#include "mvn.h"
 #include "version.h"
 
 namespace aha {
@@ -11,70 +11,71 @@ std::string Version() {
 }
 
 Model::Model(int rank, int dim) {
-  p = new Mixture(rank, dim);
+  p = new mix(rank, dim);
 }
 
 Model::~Model() {
-  delete (Mixture*)p;
+  delete (mix*)p;
 }
 
 bool Model::Initialized() const {
-  return ((Mixture*)p)->Initialized();
+  return ((mix*)p)->Initialized();
 }
 
 int Model::Rank() const {
-  return ((Mixture*)p)->Rank();
+  return ((mix*)p)->Rank();
 }
 
 int Model::Dim() const {
-  return ((Mixture*)p)->Dim();
+  return ((mix*)p)->Dim();
 }
 
-std::vector<double> Model::Predict(const std::vector<double>& x) const {
-  Map<const Vector> mv_x(x.data(), x.size());
-  Vector y;
-  ((Mixture*)p)->Predict(mv_x, y);
-  return std::vector<double>(y.begin(), y.end());
+double Model::Predict(const std::vector<double>& x, std::vector<double>& y) const {
+  Map<const Vector> _x(x.data(), x.size());
+  Vector _y;
+  auto r = ((mix*)p)->Predict(_x, _y);
+  y = std::vector<double>(_y.begin(), _y.end());
+  return r;
 }
 
-std::vector<double> Model::Export() const {
-  return std::vector<double>();
+bool Model::Export(std::vector<double>& model) const {
+  return false;
 }
 
 bool Model::Import(const std::vector<double>& model) {
   return false;
 }
 
-Trainer::Trainer(Model& model) {
-  p = new ::Trainer(*(Mixture*)*(void**)&model);
+Trainer::Trainer(Model& m) {
+  p = new trainer(*(mix*)*(void**)&m);
 }
 
 Trainer::~Trainer() {
-  delete (::Trainer*)p;
+  delete (trainer*)p;
 }
 
 int Trainer::Rank() const {
-  return ((::Trainer*)p)->Rank();
+  return ((trainer*)p)->Rank();
 }
 
 int Trainer::Dim() const {
-  return ((::Trainer*)p)->Dim();
+  return ((trainer*)p)->Dim();
 }
 
 double Trainer::Score() const {
-  return ((::Trainer*)p)->Score();
+  return ((trainer*)p)->Score();
 }
 
 void Trainer::Initialize() {
-  ((::Trainer*)p)->Initialize();
+  ((trainer*)p)->Initialize();
 }
 
-void Trainer::Merge(const Trainer& trainer) {
-  ((::Trainer*)p)->Merge(*(const ::Trainer*)*(void**)&trainer);
+void Trainer::Merge(const Trainer& t) {
+  ((trainer*)p)->Merge(*(const trainer*)*(void**)&t);
 }
 
 void Trainer::Update() {
-  ((::Trainer*)p)->Update();
+  ((trainer*)p)->Update();
 }
 
 }  // namespace aha

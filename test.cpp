@@ -3,7 +3,7 @@
 //
 #include <iomanip>
 #include <iostream>
-#include "model.h"
+#include "mvn.h"
 #include "generator.h"
 #include "aha.h"
 
@@ -20,7 +20,7 @@ bool TestGaussian() {
   x << -52.8138247836419055, 167.036008837659296, -254.908653564947315,
     437.285521520668226;
   x += mu;
-  Gaussian g(mu, sigma);
+  mvn g(mu, sigma);
   auto e = 1.0e-12;
 
   auto error = g.Evaluate(x) - (-248.438063922770);
@@ -83,8 +83,8 @@ bool TestTrain() {
   const int rank = 3;
   const int dim = 3;
 
-  Mixture mix(rank, dim);
-  Trainer train(mix);
+  mix mix(rank, dim);
+  trainer train(mix);
   Generator gen;
   Vector sample = Vector::Zero(dim);
 
