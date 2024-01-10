@@ -31,6 +31,7 @@ class Trainer {
   int Dim() const;
   double Entropy() const;
   void Initialize();
+  void Train(const std::vector<double>& sample);
   void Merge(const Trainer& t);
   void Update();
 

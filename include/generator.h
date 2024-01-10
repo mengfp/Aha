@@ -2,6 +2,7 @@
 #define GAUSS_GENERATOR_H
 
 #include <vector>
+
 #include "MersenneTwister.h"
 #include "mvn.h"
 
@@ -62,6 +63,36 @@ class Generator {
   std::vector<double> weights;
   std::vector<Vector> means;
   std::vector<Matrix> ls;
+  MTRand rand;
+};
+
+class Gen2 {
+ public:
+  void Init(uint32_t seed) {
+    rand.seed(seed);
+  }
+
+  void gen(std::vector<double>& sample) {
+    auto x = rand.randNorm(0.0, 1.0);
+    auto y = rand.randNorm(0.0, 1.0);
+    auto z = rand.randNorm(0.0, 1.0);
+    auto r = rand.randInt() % 4;
+    if (r == 0) {
+      sample[0] = x * 1000 + 1;
+      sample[1] = y + 1;
+      sample[2] = x * 1000 + z + 1;
+    } else if (r == 1) {
+      sample[0] = x - 1;
+      sample[1] = y * 1000 - 1;
+      sample[2] = -y * 1000 + z - 1;
+    } else {
+      sample[0] = x * 1000;
+      sample[1] = y * 1000;
+      sample[2] = z;
+    }
+  }
+
+ protected:
   MTRand rand;
 };
 

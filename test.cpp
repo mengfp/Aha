@@ -88,7 +88,7 @@ bool TestTrain() {
   Generator gen;
   Vector sample = Vector::Zero(dim);
 
-  for (int k = 0; k < 10; k++) {
+  for (int k = 0; k < 20; k++) {
     gen.Initialize(rank, dim, seed);
     train.Initialize();
     for (int i = 0; i < N; i++) {
@@ -110,16 +110,49 @@ bool TestTrain() {
 }
 
 bool TestAha() {
+  const int N = 1000000;
+  const int seed = 3;
+
+  Gen2 gen;
+  gen.Init(seed);
+
   std::cout << "Version: " << aha::Version() << std::endl;
-  aha::Model model(3, 3);
+  aha::Model model(5, 3);
   aha::Trainer trainer(model);
+
+  for (int k = 0; k < 30; k++) {
+    trainer.Initialize();
+    std::vector<double> sample(3);
+    for (int i = 0; i < N; i++) {
+      gen.gen(sample);
+      trainer.Train(sample);
+    }
+    trainer.Update();
+    std::cout << "Entropy = " << trainer.Entropy() << std::endl;
+  }
+
+  // Test predict
+  std::cout << "Test prediction ..." << std::endl;
+  for (int k = 0; k < 10; k++) {
+    std::vector<double> sample(3);
+    gen.gen(sample);
+    std::cout << "sample: " << sample[0] << " " << sample[1] << " " << sample[2]
+              << std::endl;
+    std::vector<double> y;
+    sample.resize(2);
+    model.Predict(sample, y);
+    std::cout << "prediction: " << y[0] << std::endl;
+  }
+
+  (**(::trainer**)(&trainer)).Print();
+
   return true;
 }
 
 int main() {
-  TestGaussian();
-  TestRand();
-  TestTrain();
+  //TestGaussian();
+  //TestRand();
+  //TestTrain();
   TestAha();
   return 0;
 }

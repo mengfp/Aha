@@ -141,11 +141,13 @@ class mix {
       }
     }
     double sum = 0;
+    for (int i = 0; i < rank; i++) {
+      w[i] = weights[i] * exp(w[i] - wmax);
+      sum += w[i];
+    }
     y = Vector::Zero(dim - x.size());
     for (int i = 0; i < rank; i++) {
-      auto temp = weights[i] * exp(w[i] - wmax);
-      y += temp * v[i];
-      sum += temp;
+      y += (w[i] / sum) * v[i];
     }
     return log(sum) + wmax;
   }
