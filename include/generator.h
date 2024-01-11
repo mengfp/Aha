@@ -96,4 +96,23 @@ class Gen2 {
   MTRand rand;
 };
 
+class GenNonLinear {
+ public:
+  void Init(uint32_t seed) {
+    rand.seed(seed);
+  }
+
+  void gen(std::vector<double>& sample) {
+    auto a = rand.randNorm(0.0, 1.0);
+    auto b = rand.randNorm(0.0, 1.0);
+    auto c = rand.randNorm(0.0, 1.0);
+    sample[0] = a;
+    sample[1] = b;
+    sample[2] = a * b + c;
+  }
+
+ protected:
+  MTRand rand;
+};
+
 #endif

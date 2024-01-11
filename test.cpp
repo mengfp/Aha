@@ -3,9 +3,11 @@
 //
 #include <iomanip>
 #include <iostream>
-#include "mvn.h"
-#include "generator.h"
+#include <fstream>
+
 #include "aha.h"
+#include "generator.h"
+#include "mvn.h"
 
 bool TestGaussian() {
   Vector mu(4);
@@ -93,7 +95,7 @@ bool TestTrain() {
     train.Initialize();
     for (int i = 0; i < N; i++) {
       gen.Gen(sample);
-      train.Train(sample);    
+      train.Train(sample);
     }
     train.Update();
     std::cout << "Entropy = " << train.Entropy() << std::endl;
@@ -149,10 +151,70 @@ bool TestAha() {
   return true;
 }
 
+bool TestNonLinear() {
+  GenNonLinear gen;
+  gen.Init(1);
+  std::vector<double> sample(3);
+  int N = 1000000;
+
+  aha::Model m1(1, 3);
+  aha::Model m3(3, 3);
+  aha::Model m5(5, 3);
+  aha::Model m7(7, 3);
+
+  aha::Trainer t1(m1);
+  aha::Trainer t3(m3);
+  aha::Trainer t5(m5);
+  aha::Trainer t7(m7);
+
+  for (int k = 0; k < 40; k++) {
+    t1.Initialize();
+    t3.Initialize();
+    t5.Initialize();
+    t7.Initialize();
+
+    for (int i = 0; i < N; i++) {
+      gen.gen(sample);
+      t1.Train(sample);
+      t3.Train(sample);
+      t5.Train(sample);
+      t7.Train(sample);
+    }
+
+    t1.Update();
+    t3.Update();
+    t5.Update();
+    t7.Update();
+
+    std::cout << "Entropy = " << t1.Entropy() << " " << t3.Entropy() << " "
+              << t5.Entropy() << " " << t7.Entropy() << std::endl;
+  }
+
+  // Predict
+  std::ofstream ofs("nonlinear.csv");
+  ofs << "X, Y, Z, Z1, Z3, Z5, Z7" << std::endl; 
+  for (int i = 0; i < 100; i++) {
+    std::vector<double> sample(3);
+    gen.gen(sample);
+    ofs << sample[0] << "," << sample[1] << "," << sample[2];
+    std::vector<double> y;
+    sample.resize(2);
+    m1.Predict(sample, y);
+    ofs << "," << y[0];
+    m3.Predict(sample, y);
+    ofs << "," << y[0];
+    m5.Predict(sample, y);
+    ofs << "," << y[0];
+    m7.Predict(sample, y);
+    ofs << "," << y[0] << std::endl;
+  }
+}
+
 int main() {
-  //TestGaussian();
-  //TestRand();
-  //TestTrain();
-  TestAha();
+  // TestGaussian();
+  // TestRand();
+  // TestTrain();
+  // TestAha();
+  TestNonLinear();
   return 0;
 }
