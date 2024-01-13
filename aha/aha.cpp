@@ -47,8 +47,8 @@ bool Model::Import(const std::vector<char>& model) {
   return false;
 }
 
-Trainer::Trainer(Model& m) {
-  p = new trainer(*(mix*)*(void**)&m);
+Trainer::Trainer(Model& m, uint64_t seed) {
+  p = new trainer(*(mix*)*(void**)&m, seed);
 }
 
 Trainer::~Trainer() {

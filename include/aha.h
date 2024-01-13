@@ -25,7 +25,7 @@ class Model {
 
 class Trainer {
  public:
-  Trainer(Model& m);
+  Trainer(Model& m, uint64_t seed = 0);
   ~Trainer();
   int Rank() const;
   int Dim() const;

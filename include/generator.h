@@ -1,10 +1,22 @@
 #ifndef GAUSS_GENERATOR_H
 #define GAUSS_GENERATOR_H
 
+#pragma warning(disable : 4819)
+#include <Eigen>
+#include <chrono>
 #include <vector>
 
 #include "MersenneTwister.h"
-#include "mvn.h"
+
+using namespace Eigen;
+#define Vector VectorXd
+#define Matrix MatrixXd
+
+inline uint64_t nano() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+           std::chrono::steady_clock::now().time_since_epoch())
+    .count();
+}
 
 class Generator {
  public:
@@ -108,10 +120,37 @@ class GenNonLinear {
     auto c = rand.randNorm(0.0, 1.0);
     sample[0] = a;
     sample[1] = b;
-    sample[2] = a * b + c;
+    sample[2] = a * b + 0.1 * c;
   }
 
  protected:
+  MTRand rand;
+};
+
+class MVNGenerator {
+ public:
+  MVNGenerator(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
+    this->mean = mean;
+    this->L = LLT<Matrix>(cov.selfadjointView<Lower>()).matrixL();
+    if (seed == 0) {
+      seed = std::hash<long long>()(nano());
+    } else {
+      seed = std::hash<long long>()(seed);
+    }
+    rand.seed((MTRand::uint32*)&seed, 2);
+  }
+
+  Vector Gen() {
+    Vector v = Vector::Zero(mean.size());
+    for (auto& x : v) {
+      x = rand.randNorm(0, 1);
+    }
+    return L.triangularView<Lower>() * v + mean;
+  }
+
+ private:
+  Vector mean;
+  Matrix L;
   MTRand rand;
 };
 

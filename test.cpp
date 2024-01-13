@@ -160,39 +160,34 @@ bool TestNonLinear() {
   aha::Model m1(1, 3);
   aha::Model m3(3, 3);
   aha::Model m5(5, 3);
-  aha::Model m7(7, 3);
 
   aha::Trainer t1(m1);
   aha::Trainer t3(m3);
   aha::Trainer t5(m5);
-  aha::Trainer t7(m7);
 
-  for (int k = 0; k < 40; k++) {
+  for (int k = 0; k < 50; k++) {
     t1.Initialize();
     t3.Initialize();
     t5.Initialize();
-    t7.Initialize();
 
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
       t1.Train(sample);
       t3.Train(sample);
       t5.Train(sample);
-      t7.Train(sample);
     }
 
     t1.Update();
     t3.Update();
     t5.Update();
-    t7.Update();
 
     std::cout << "Entropy = " << t1.Entropy() << " " << t3.Entropy() << " "
-              << t5.Entropy() << " " << t7.Entropy() << std::endl;
+              << t5.Entropy() << std::endl;
   }
 
   // Predict
   std::ofstream ofs("nonlinear.csv");
-  ofs << "X, Y, Z, Z1, Z3, Z5, Z7" << std::endl; 
+  ofs << "X, Y, Z, Z1, Z3, Z5" << std::endl; 
   for (int i = 0; i < 100; i++) {
     std::vector<double> sample(3);
     gen.gen(sample);
@@ -204,17 +199,47 @@ bool TestNonLinear() {
     m3.Predict(sample, y);
     ofs << "," << y[0];
     m5.Predict(sample, y);
-    ofs << "," << y[0];
-    m7.Predict(sample, y);
     ofs << "," << y[0] << std::endl;
   }
+
+  return true;
+}
+
+bool TestMVNGenerator() {
+  int N = 1000000;
+  Vector mean(4);
+  mean << 1, 2, 3, 4;
+  Matrix cov(4, 4);
+  cov << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    237.757814080695653, 31.6838227860951349, -152.033658539600196,
+    373.530902783367878, -140.279703673223594, 141.409621752763684,
+    237.757814080695653, -140.279703673223594, 827.467631118572399;
+  MVNGenerator gen(mean, cov, 1);
+
+  mix m(1, 4);
+  trainer t(m);
+
+  for (int k = 0; k < 10; k++) {
+    t.Initialize();
+    for (int i = 0; i < N; i++) {
+      auto sample = gen.Gen();
+      t.Train(sample);
+      t.Train(sample);
+    }
+    t.Update();
+    std::cout << "Entropy = " << t.Entropy() << std::endl;
+  }
+  t.Print();
+  return true;
 }
 
 int main() {
-  // TestGaussian();
-  // TestRand();
-  // TestTrain();
-  // TestAha();
+  TestGaussian();
+  TestRand();
+  TestTrain();
+  TestAha();
   TestNonLinear();
+  TestMVNGenerator();
   return 0;
 }

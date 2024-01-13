@@ -4,9 +4,9 @@
 #include <cassert>
 #include <iostream>
 #include <vector>
-
 #pragma warning(disable : 4819)
 #include <Eigen>
+#include "generator.h"
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626
@@ -161,11 +161,12 @@ class mix {
 
 class trainer {
  public:
-  trainer(mix& m)
+  trainer(mix& m, uint64_t seed = 0)
     : m(m),
       rank(m.Rank()),
       dim(m.Dim()),
       entropy(0),
+      seed(seed),
       weights(m.Rank()),
       means(m.Rank()),
       covs(m.Rank()),
@@ -192,11 +193,11 @@ class trainer {
         covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
       }
     } else {
-      auto var = sample.array().square();
+      Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
-        weights[i] += 1.0 / rank;
-        means[i] += sample / rank;
-        covs[i].diagonal() += var.matrix() * ((i + 1.0) / rank);
+        weights[i] += 1.0;
+        means[i] += sample;
+        covs[i] += quadric.selfadjointView<Lower>();
       }
     }
   }
@@ -222,6 +223,14 @@ class trainer {
         (covs[i] / weights[i] - means[i] * means[i].transpose())
           .selfadjointView<Lower>();
       weights[i] /= s;
+    }
+    if (!m.Initialized() && rank > 0) {
+      MVNGenerator gen(means[0], covs[0], seed);
+      for (int i = 0; i < rank; i++) {
+        means[i] = gen.Gen();
+        Vector diagonal = covs[i].diagonal();
+        covs[i] = diagonal.asDiagonal();
+      }
     }
     m.Initialize(weights, means, covs);
   }
@@ -251,6 +260,7 @@ class trainer {
   int rank;
   int dim;
   double entropy;
+  uint64_t seed;
   std::vector<double> weights;
   std::vector<Vector> means;
   std::vector<Matrix> covs;
