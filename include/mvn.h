@@ -6,6 +6,7 @@
 #include <vector>
 #pragma warning(disable : 4819)
 #include <Eigen>
+
 #include "generator.h"
 
 #ifndef M_PI
@@ -35,11 +36,11 @@ class mvn {
     auto llt = LLT<Matrix>(sigma.selfadjointView<Lower>());
     assert(llt.info() == Success);
     u = mu;
-    L = llt.matrixL();
+    l = llt.matrixL();
     d = Vector(mu.size());
     double c = 0;
     for (int i = 0; i < (int)mu.size(); i++) {
-      c += 2 * log(L(i, i));
+      c += 2 * log(l(i, i));
       d(i) = c;
     }
   }
@@ -47,7 +48,7 @@ class mvn {
   double Evaluate(const Vector& x) const {
     assert(x.size() == u.size());
     auto n = u.size();
-    return -0.5 * (L.triangularView<Lower>().solve(x - u).squaredNorm() +
+    return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
                    n * log(2 * M_PI) + d(n - 1));
   }
 
@@ -55,7 +56,7 @@ class mvn {
   double PartialEvaluate(const Vector& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
-    return -0.5 * (L.topLeftCorner(k, k)
+    return -0.5 * (l.topLeftCorner(k, k)
                      .triangularView<Lower>()
                      .solve(x - u.head(k))
                      .squaredNorm() +
@@ -67,20 +68,29 @@ class mvn {
     auto n = u.size();
     auto k = x.size();
     Vector temp =
-      L.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
-    y = L.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
+      l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
+    y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
     return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
+  }
+
+ public:
+  const Vector& getu() const {
+    return u;
+  }
+
+  const Matrix& getl() const {
+    return l;
   }
 
  protected:
   Vector u;
-  Matrix L;
+  Matrix l;
   Vector d;
 };
 
 class mix {
  public:
-  mix(int rank, int dim) : rank(rank), dim(dim) {
+  mix(int rank = 0, int dim = 0) : rank(rank), dim(dim) {
   }
 
   bool Initialized() {
@@ -98,9 +108,8 @@ class mix {
   void Initialize(const std::vector<double>& weights,
                   const std::vector<Vector>& means,
                   const std::vector<Matrix>& covs) {
-    assert(weights.size() == rank);
-    assert(means.size() == rank);
-    assert(covs.size() == rank);
+    rank = (int)weights.size();
+    dim = means.size() > 0 ? (int)means[0].size() : 0;
     this->weights = weights;
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
@@ -150,6 +159,62 @@ class mix {
       y += (w[i] / sum) * v[i];
     }
     return log(sum) + wmax;
+  }
+
+  bool Export(std::vector<char>& model) const {
+    uint32_t r = rank;
+    uint32_t d = dim;
+    model.clear();
+    model.insert(model.end(), (char*)&r, (char*)(&r + 1));
+    model.insert(model.end(), (char*)&d, (char*)(&d + 1));
+    model.insert(model.end(),
+                 (char*)weights.data(),
+                 (char*)(weights.data() + weights.size()));
+    for (int i = 0; i < rank; i++) {
+      model.insert(model.end(),
+                   (char*)cores[i].getu().data(),
+                   (char*)(cores[i].getu().data() + cores[i].getu().size()));
+      model.insert(model.end(),
+                   (char*)cores[i].getl().data(),
+                   (char*)(cores[i].getl().data() + cores[i].getl().size()));
+    }
+    return true;
+  }
+
+  bool Import(const std::vector<char>& model) {
+    uint32_t r;
+    uint32_t d;
+    if (model.size() < sizeof(r) + sizeof(d)) {
+      return false;
+    }
+    r = *(uint32_t*)model.data();
+    d = *(((uint32_t*)model.data()) + 1);
+    if (model.size() < sizeof(r) + sizeof(d) + r * sizeof(double) +
+                         r * d * sizeof(double) + r * d * d * sizeof(double)) {
+      return false;
+    }
+    rank = (int)r;
+    dim = (int)d;
+    auto p = (double*)(model.data() + sizeof(r) + sizeof(d));
+    weights = std::vector<double>(p, p + rank);
+    p += rank;
+    cores.resize(rank);
+    for (int i = 0; i < rank; i++) {
+      auto u = Map<Vector>(p, dim);
+      p += dim;
+      auto l = Map<Matrix>(p, dim, dim);
+      p += dim * dim;
+      cores[i].Initialize(u, l * l.transpose());
+    }
+    return true;
+  }
+
+  void Print() {
+    for (int i = 0; i < rank; i++) {
+      std::cout << i << ": " << weights[i] << "\n";
+      std::cout << "mean:\n" << cores[i].getu() << "\n";
+      std::cout << "sigma:\n" << cores[i].getl() * cores[i].getl().transpose() << "\n\n";
+    }
   }
 
  protected:
@@ -219,9 +284,8 @@ class trainer {
     entropy /= s;
     for (int i = 0; i < rank; i++) {
       means[i] /= weights[i];
-      covs[i] =
-        (covs[i] / weights[i] - means[i] * means[i].transpose())
-          .selfadjointView<Lower>();
+      covs[i] = (covs[i] / weights[i] - means[i] * means[i].transpose())
+                  .selfadjointView<Lower>();
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {

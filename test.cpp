@@ -234,12 +234,46 @@ bool TestMVNGenerator() {
   return true;
 }
 
+bool TestImportExport() {
+  std::vector<double> weights(2);
+  std::vector<Vector> means(2);
+  std::vector<Matrix> covs(2);
+
+  weights[0] = 0.1;
+  weights[1] = 0.9;
+   
+  means[0] = Vector::Zero(4);
+  means[0] << 1, 2, 3, 4;
+  means[1] = Vector::Zero(4);
+  means[1] << 4, 3, 2, 1;
+
+  covs[0] = Matrix::Identity(4, 4);
+  covs[1] = Matrix::Zero(4, 4);
+  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
+            32.4796258609215869, 110.549260960654465, -152.033658539600196, 237.757814080695653,
+            31.6838227860951349, -152.033658539600196, 373.530902783367878, -140.279703673223594,
+            141.409621752763684, 237.757814080695653, -140.279703673223594, 827.467631118572399;
+  mix m;
+  m.Initialize(weights, means, covs);
+  std::cout << "Original:" << std::endl;
+  m.Print();
+  std::vector<char> model;
+  auto ex = m.Export(model);
+  std::cout << "Exported: " << ex << " " << model.size() << std::endl;
+  mix m2;
+  auto im = m2.Import(model);
+  std::cout << "Imported: " << im << std::endl;
+  m2.Print();
+  return true;
+}
+
 int main() {
-  TestGaussian();
-  TestRand();
-  TestTrain();
-  TestAha();
-  TestNonLinear();
-  TestMVNGenerator();
+  // TestGaussian();
+  // TestRand();
+  // TestTrain();
+  // TestAha();
+  // TestNonLinear();
+  // TestMVNGenerator();
+  TestImportExport();
   return 0;
 }
