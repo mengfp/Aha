@@ -40,11 +40,11 @@ double Model::Predict(const std::vector<double>& x,
 }
 
 bool Model::Export(std::vector<char>& model) const {
-  return false;
+  return ((mix*)p)->Export(model);
 }
 
 bool Model::Import(const std::vector<char>& model) {
-  return false;
+  return ((mix*)p)->Import(model);
 }
 
 Trainer::Trainer(Model& m, uint64_t seed) {
