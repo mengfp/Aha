@@ -1,5 +1,5 @@
-#ifndef GAUSS_GAUSSION_H
-#define GAUSS_GAUSSION_H
+#ifndef AHA_MVN_H
+#define AHA_MVN_H
 
 #include <cassert>
 #include <iostream>

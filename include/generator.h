@@ -1,5 +1,5 @@
-#ifndef GAUSS_GENERATOR_H
-#define GAUSS_GENERATOR_H
+#ifndef AHA_GENERATOR_H
+#define AHA_GENERATOR_H
 
 #pragma warning(disable : 4819)
 #include <Eigen>
