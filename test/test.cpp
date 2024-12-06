@@ -268,12 +268,12 @@ bool TestImportExport() {
 }
 
 int main() {
-  // TestGaussian();
-  // TestRand();
-  // TestTrain();
-  // TestAha();
-  // TestNonLinear();
-  // TestMVNGenerator();
+  TestGaussian();
+  TestRand();
+  TestTrain();
+  TestAha();
+  TestNonLinear();
+  TestMVNGenerator();
   TestImportExport();
   return 0;
 }
