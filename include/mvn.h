@@ -1,10 +1,14 @@
 #ifndef AHA_MVN_H
 #define AHA_MVN_H
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4819)
+#endif
+
+#include <cfloat>
 #include <cassert>
 #include <iostream>
 #include <vector>
-#pragma warning(disable : 4819)
 #include <Eigen>
 
 #include "generator.h"
@@ -118,8 +122,8 @@ class mix {
   }
 
   double Evaluate(const Vector& x, std::vector<double>& w) const {
-    assert(x.size() == dim);
-    assert(w.size() == rank);
+    assert((int)x.size() == dim);
+    assert((int)w.size() == rank);
     double wmax = -DBL_MAX;
     for (int i = 0; i < rank; i++) {
       w[i] = cores[i].Evaluate(x);
@@ -139,7 +143,7 @@ class mix {
   }
 
   double Predict(const Vector& x, Vector& y) const {
-    assert(x.size() <= dim);
+    assert((int)x.size() <= dim);
     double wmax = -DBL_MAX;
     std::vector<Vector> v(rank);
     std::vector<double> w(rank);
