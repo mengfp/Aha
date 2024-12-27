@@ -171,7 +171,7 @@ class mix {
   std::string Export() const {
     json j;
     if (!Initialized()) {
-      return "*** error: not initialized ***";
+      return "*** not initialized ***";
     }
     j["rank"] = rank;
     j["dim"] = dim;
