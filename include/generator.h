@@ -9,7 +9,9 @@
 #include <chrono>
 #include <vector>
 
+#define register
 #include "MersenneTwister.h"
+#undef register
 
 using namespace Eigen;
 #define Vector VectorXd
