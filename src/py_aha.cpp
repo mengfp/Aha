@@ -30,7 +30,7 @@ PYBIND11_MODULE(aha, m) {
     .def("Rank", &Trainer::Rank)
     .def("Dim", &Trainer::Dim)
     .def("Entropy", &Trainer::Entropy)
-    .def("Initialize", &Trainer::Initialize)
+    .def("Reset", &Trainer::Reset)
     .def("Train", &Trainer::Train)
     .def("Merge", &Trainer::Merge)
     .def("Update", &Trainer::Update);

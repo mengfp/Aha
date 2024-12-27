@@ -65,8 +65,8 @@ double Trainer::Entropy() const {
   return ((trainer*)p)->Entropy();
 }
 
-void Trainer::Initialize() {
-  ((trainer*)p)->Initialize();
+void Trainer::Reset() {
+  ((trainer*)p)->Reset();
 }
 
 void Trainer::Train(const std::vector<double>& sample) {

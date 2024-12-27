@@ -30,7 +30,7 @@ class Trainer {
   int Rank() const;
   int Dim() const;
   double Entropy() const;
-  void Initialize();
+  void Reset();
   void Train(const std::vector<double>& sample);
   void Merge(const Trainer& t);
   void Update();

@@ -92,7 +92,7 @@ bool TestTrain() {
 
   for (int k = 0; k < 20; k++) {
     gen.Initialize(rank, dim, seed);
-    train.Initialize();
+    train.Reset();
     for (int i = 0; i < N; i++) {
       gen.Gen(sample);
       train.Train(sample);
@@ -123,7 +123,7 @@ bool TestAha() {
   aha::Trainer trainer(model);
 
   for (int k = 0; k < 30; k++) {
-    trainer.Initialize();
+    trainer.Reset();
     std::vector<double> sample(3);
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
@@ -166,9 +166,9 @@ bool TestNonLinear() {
   aha::Trainer t5(m5);
 
   for (int k = 0; k < 50; k++) {
-    t1.Initialize();
-    t3.Initialize();
-    t5.Initialize();
+    t1.Reset();
+    t3.Reset();
+    t5.Reset();
 
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
@@ -221,7 +221,7 @@ bool TestMVNGenerator() {
   trainer t(m);
 
   for (int k = 0; k < 10; k++) {
-    t.Initialize();
+    t.Reset();
     for (int i = 0; i < N; i++) {
       auto sample = gen.Gen();
       t.Train(sample);

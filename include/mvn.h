@@ -251,7 +251,7 @@ class trainer {
       temp(m.Rank()) {
   }
 
-  void Initialize() {
+  void Reset() {
     entropy = 0;
     for (int i = 0; i < rank; i++) {
       weights[i] = 0;
