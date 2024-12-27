@@ -4,21 +4,11 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-#ifdef AHA_EXPORTS
-#define AHA_API __declspec(dllexport)
-#else
-#define AHA_API __declspec(dllimport)
-#endif
-#else
-#define AHA_API
-#endif
-
 namespace aha {
 
-AHA_API std::string Version();
+std::string Version();
 
-class AHA_API Model {
+class Model {
  public:
   Model(int rank, int dim);
   ~Model();
@@ -33,7 +23,7 @@ class AHA_API Model {
   void* p;
 };
 
-class AHA_API Trainer {
+class Trainer {
  public:
   Trainer(Model& m, uint64_t seed = 0);
   ~Trainer();

@@ -14,14 +14,6 @@ def get_version():
 
 __version__ = get_version()
 
-if sys.platform == "win32":
-    library_dirs = ["x64/Release"]
-    dll_files = ["x64/Release/aha.dll"]
-else:
-    library_dirs = ["build/aha"]
-    #dll_files = ["build/aha/libaha.so"]
-    dll_files = []
-
 setup_info = dict(
     name="aha",
     version=__version__,
@@ -36,15 +28,12 @@ setup_info = dict(
     ext_modules= [
         Pybind11Extension(
             "aha",
-            ["src/py_aha.cpp"],
+            ["aha/aha.cpp", "src/py_aha.cpp"],
             # Example: passing in the version to the compiled code
             define_macros=[("VERSION", __version__)],
             include_dirs=["include", "eigen"],
-            libraries=["aha"],
-            library_dirs=library_dirs,
         ),
     ],
-    data_files=dll_files,
     scripts=[],
 )
 

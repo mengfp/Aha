@@ -5,14 +5,14 @@
 #pragma warning(disable : 4819)
 #endif
 
-#include <generator.h>
-
-#include <Eigen>
+#include <Eigen/Eigen>
 #include <cassert>
 #include <cfloat>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
+
+#include "generator.h"
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626

@@ -5,7 +5,7 @@
 #pragma warning(disable : 4819)
 #endif
 
-#include <Eigen>
+#include <Eigen/Eigen>
 #include <chrono>
 #include <vector>
 

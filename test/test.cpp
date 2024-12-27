@@ -5,9 +5,9 @@
 #include <iostream>
 #include <fstream>
 
-#include "aha.h"
-#include "generator.h"
-#include "mvn.h"
+#include <aha.h>
+#include <generator.h>
+#include <mvn.h>
 
 bool TestGaussian() {
   Vector mu(4);
