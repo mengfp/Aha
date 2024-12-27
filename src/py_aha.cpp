@@ -3,14 +3,14 @@
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <aha.h>
+#include <version.h>
 
 namespace pb = pybind11;
 using namespace aha;
 
-#define STRINGIFY(x) #x
-#define MACRO_STRINGIFY(x) STRINGIFY(x)
-
 PYBIND11_MODULE(aha, m) {
+  m.attr("__version__") = VERSION;
+    
   // Version
   m.def("Version", Version);
 
@@ -34,10 +34,4 @@ PYBIND11_MODULE(aha, m) {
     .def("Train", &Trainer::Train)
     .def("Merge", &Trainer::Merge)
     .def("Update", &Trainer::Update);
-
-#ifdef VERSION
-  m.attr("__version__") = MACRO_STRINGIFY(VERSION);
-#else
-  m.attr("__version__") = "dev";
-#endif
 }

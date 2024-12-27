@@ -12,11 +12,9 @@ def get_version():
                 return tokens[2].strip('"')
     return ""
 
-__version__ = get_version()
-
 setup_info = dict(
     name="aha",
-    version=__version__,
+    version=get_version(),
     author="Fanping Meng",
     author_email="mengfpoliver@gmail.com",
     url="https://github.com/mengfp/Aha",
@@ -29,8 +27,6 @@ setup_info = dict(
         Pybind11Extension(
             "aha",
             ["aha/aha.cpp", "src/py_aha.cpp"],
-            # Example: passing in the version to the compiled code
-            define_macros=[("VERSION", __version__)],
             include_dirs=["include", "eigen"],
         ),
     ],
