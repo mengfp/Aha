@@ -5,13 +5,14 @@
 #pragma warning(disable : 4819)
 #endif
 
-#include <cfloat>
-#include <cassert>
-#include <iostream>
-#include <vector>
-#include <Eigen>
+#include <generator.h>
 
-#include "generator.h"
+#include <Eigen>
+#include <cassert>
+#include <cfloat>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626
@@ -20,6 +21,8 @@
 using namespace Eigen;
 #define Vector VectorXd
 #define Matrix MatrixXd
+
+using json = nlohmann::ordered_json;
 
 class mvn {
  public:
@@ -97,7 +100,7 @@ class mix {
   mix(int rank = 0, int dim = 0) : rank(rank), dim(dim) {
   }
 
-  bool Initialized() {
+  bool Initialized() const {
     return cores.size() > 0;
   }
 
@@ -165,59 +168,65 @@ class mix {
     return log(sum) + wmax;
   }
 
-  bool Export(std::vector<char>& model) const {
-    uint32_t r = rank;
-    uint32_t d = dim;
-    model.clear();
-    model.insert(model.end(), (char*)&r, (char*)(&r + 1));
-    model.insert(model.end(), (char*)&d, (char*)(&d + 1));
-    model.insert(model.end(),
-                 (char*)weights.data(),
-                 (char*)(weights.data() + weights.size()));
-    for (int i = 0; i < rank; i++) {
-      model.insert(model.end(),
-                   (char*)cores[i].getu().data(),
-                   (char*)(cores[i].getu().data() + cores[i].getu().size()));
-      model.insert(model.end(),
-                   (char*)cores[i].getl().data(),
-                   (char*)(cores[i].getl().data() + cores[i].getl().size()));
+  std::string Export() const {
+    json j;
+    if (!Initialized()) {
+      return "*** error: not initialized ***";
     }
-    return true;
+    j["rank"] = rank;
+    j["dim"] = dim;
+    j["weights"] = weights;
+    j["cores"] = {};
+    for (int i = 0; i < (int)cores.size(); i++) {
+      auto& u = cores[i].getu();
+      auto& l = cores[i].getl();
+      Matrix s = l * l.transpose();
+      std::vector<double> mu(u.data(), u.data() + u.size());
+      std::vector<double> sigma(s.data(), s.data() + s.size());
+      j["cores"].push_back({{"mu", mu}, {"sigma", sigma}});
+    }
+    return j.dump();
   }
 
-  bool Import(const std::vector<char>& model) {
-    uint32_t r;
-    uint32_t d;
-    if (model.size() < sizeof(r) + sizeof(d)) {
+  bool Import(const std::string& model) {
+    try {
+      auto j = nlohmann::json::parse(model);
+      int r = j["rank"];
+      int d = j["dim"];
+      std::vector<double> w = j["weights"];
+      if (w.size() != r) {
+        return false;
+      }
+      std::vector<mvn> c(j["cores"].size());
+      if (c.size() != r) {
+        return false;
+      }
+      for (int i = 0; i < (int)j["cores"].size(); i++) {
+        std::vector<double> mu = j["cores"][i]["mu"];
+        std::vector<double> sigma = j["cores"][i]["sigma"];
+        if (mu.size() != d || sigma.size() != d * d) {
+          return false;
+        }
+        auto u = Map<Vector>(mu.data(), d);
+        auto s = Map<Matrix>(sigma.data(), d, d);
+        c[i].Initialize(u, s);
+      }
+      rank = r;
+      dim = d;
+      weights = w;
+      cores = c;
+      return true;
+    } catch (...) {
       return false;
     }
-    r = *(uint32_t*)model.data();
-    d = *(((uint32_t*)model.data()) + 1);
-    if (model.size() < sizeof(r) + sizeof(d) + r * sizeof(double) +
-                         r * d * sizeof(double) + r * d * d * sizeof(double)) {
-      return false;
-    }
-    rank = (int)r;
-    dim = (int)d;
-    auto p = (double*)(model.data() + sizeof(r) + sizeof(d));
-    weights = std::vector<double>(p, p + rank);
-    p += rank;
-    cores.resize(rank);
-    for (int i = 0; i < rank; i++) {
-      auto u = Map<Vector>(p, dim);
-      p += dim;
-      auto l = Map<Matrix>(p, dim, dim);
-      p += dim * dim;
-      cores[i].Initialize(u, l * l.transpose());
-    }
-    return true;
   }
 
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "mean:\n" << cores[i].getu() << "\n";
-      std::cout << "sigma:\n" << cores[i].getl() * cores[i].getl().transpose() << "\n\n";
+      std::cout << "mu:\n" << cores[i].getu() << "\n";
+      std::cout << "sigma:\n"
+                << cores[i].getl() * cores[i].getl().transpose() << "\n\n";
     }
   }
 
@@ -318,7 +327,7 @@ class trainer {
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "mean:\n" << means[i] << "\n";
+      std::cout << "mu:\n" << means[i] << "\n";
       std::cout << "sigma:\n" << covs[i] << "\n";
     }
   }

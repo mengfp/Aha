@@ -257,12 +257,12 @@ bool TestImportExport() {
   m.Initialize(weights, means, covs);
   std::cout << "Original:" << std::endl;
   m.Print();
-  std::vector<char> model;
-  auto ex = m.Export(model);
-  std::cout << "Exported: " << ex << " " << model.size() << std::endl;
+  std::string model = m.Export();
+  std::cout << "Exported:" << std::endl;
+  std::cout << model << std::endl;
   mix m2;
-  auto im = m2.Import(model);
-  std::cout << "Imported: " << im << std::endl;
+  m2.Import(model);
+  std::cout << "Imported:" << std::endl;
   m2.Print();
   return true;
 }

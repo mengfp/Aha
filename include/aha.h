@@ -4,11 +4,21 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#ifdef AHA_EXPORTS
+#define AHA_API __declspec(dllexport)
+#else
+#define AHA_API __declspec(dllimport)
+#endif
+#else
+#define AHA_API
+#endif
+
 namespace aha {
 
-std::string Version();
+AHA_API std::string Version();
 
-class Model {
+class AHA_API Model {
  public:
   Model(int rank, int dim);
   ~Model();
@@ -16,14 +26,14 @@ class Model {
   int Rank() const;
   int Dim() const;
   double Predict(const std::vector<double>& x, std::vector<double>& y) const;
-  bool Export(std::vector<char>& model) const;
-  bool Import(const std::vector<char>& model);
+  std::string Export() const;
+  bool Import(const std::string& model);
 
  private:
   void* p;
 };
 
-class Trainer {
+class AHA_API Trainer {
  public:
   Trainer(Model& m, uint64_t seed = 0);
   ~Trainer();

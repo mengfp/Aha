@@ -1,13 +1,11 @@
 #include "aha.h"
-
 #include "mvn.h"
 #include "version.h"
 
 namespace aha {
 
 std::string Version() {
-  return std::to_string(MAJOR_VERSION) + "." + std::to_string(MINOR_VERSION) +
-         "." + std::to_string(REVISION);
+  return VERSION;
 }
 
 Model::Model(int rank, int dim) {
@@ -39,11 +37,11 @@ double Model::Predict(const std::vector<double>& x,
   return r;
 }
 
-bool Model::Export(std::vector<char>& model) const {
-  return ((mix*)p)->Export(model);
+std::string Model::Export() const {
+  return ((mix*)p)->Export();
 }
 
-bool Model::Import(const std::vector<char>& model) {
+bool Model::Import(const std::string& model) {
   return ((mix*)p)->Import(model);
 }
 
