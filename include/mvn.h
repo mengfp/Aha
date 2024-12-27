@@ -194,17 +194,17 @@ class mix {
       int r = j["rank"];
       int d = j["dim"];
       std::vector<double> w = j["weights"];
-      if (w.size() != r) {
+      if ((int)w.size() != r) {
         return false;
       }
       std::vector<mvn> c(j["cores"].size());
-      if (c.size() != r) {
+      if ((int)c.size() != r) {
         return false;
       }
       for (int i = 0; i < (int)j["cores"].size(); i++) {
         std::vector<double> mu = j["cores"][i]["mu"];
         std::vector<double> sigma = j["cores"][i]["sigma"];
-        if (mu.size() != d || sigma.size() != d * d) {
+        if ((int)mu.size() != d || (int)sigma.size() != d * d) {
           return false;
         }
         auto u = Map<Vector>(mu.data(), d);

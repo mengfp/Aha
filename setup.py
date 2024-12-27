@@ -18,8 +18,9 @@ if sys.platform == "win32":
     library_dirs = ["x64/Release"]
     dll_files = ["x64/Release/aha.dll"]
 else:
-    library_dirs = ["x64/Release"]
-    dll_files = ["x64/Release/aha.dll"]
+    library_dirs = ["build/aha"]
+    #dll_files = ["build/aha/libaha.so"]
+    dll_files = []
 
 setup_info = dict(
     name="aha",
