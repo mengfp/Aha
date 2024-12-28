@@ -1,13 +1,13 @@
 // Test.cpp : This file contains the 'main' function. Program execution begins
 // and ends there.
 //
-#include <iomanip>
-#include <iostream>
-#include <fstream>
-
 #include <aha.h>
 #include <generator.h>
 #include <mvn.h>
+
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 
 bool TestGaussian() {
   Vector mu(4);
@@ -187,7 +187,7 @@ bool TestNonLinear() {
 
   // Predict
   std::ofstream ofs("nonlinear.csv");
-  ofs << "X, Y, Z, Z1, Z3, Z5" << std::endl; 
+  ofs << "X, Y, Z, Z1, Z3, Z5" << std::endl;
   for (int i = 0; i < 100; i++) {
     std::vector<double> sample(3);
     gen.gen(sample);
@@ -241,7 +241,7 @@ bool TestImportExport() {
 
   weights[0] = 0.1;
   weights[1] = 0.9;
-   
+
   means[0] = Vector::Zero(4);
   means[0] << 1, 2, 3, 4;
   means[1] = Vector::Zero(4);
@@ -250,9 +250,10 @@ bool TestImportExport() {
   covs[0] = Matrix::Identity(4, 4);
   covs[1] = Matrix::Zero(4, 4);
   covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
-            32.4796258609215869, 110.549260960654465, -152.033658539600196, 237.757814080695653,
-            31.6838227860951349, -152.033658539600196, 373.530902783367878, -140.279703673223594,
-            141.409621752763684, 237.757814080695653, -140.279703673223594, 827.467631118572399;
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    237.757814080695653, 31.6838227860951349, -152.033658539600196,
+    373.530902783367878, -140.279703673223594, 141.409621752763684,
+    237.757814080695653, -140.279703673223594, 827.467631118572399;
   mix m;
   m.Initialize(weights, means, covs);
   std::cout << "Original:" << std::endl;

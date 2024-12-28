@@ -1,8 +1,8 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <aha.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
-#include <aha.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <version.h>
 
 namespace pb = pybind11;
@@ -10,7 +10,7 @@ using namespace aha;
 
 PYBIND11_MODULE(aha, m) {
   m.attr("__version__") = VERSION;
-    
+
   // Version
   m.def("Version", Version);
 
