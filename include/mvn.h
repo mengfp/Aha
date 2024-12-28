@@ -173,17 +173,17 @@ class mix {
     if (!Initialized()) {
       return "*** not initialized ***";
     }
-    j["rank"] = rank;
-    j["dim"] = dim;
-    j["weights"] = weights;
-    j["cores"] = {};
+    j["r"] = rank;
+    j["d"] = dim;
+    j["w"] = weights;
+    j["c"] = {};
     for (int i = 0; i < (int)cores.size(); i++) {
       auto& u = cores[i].getu();
       auto& l = cores[i].getl();
       Matrix s = l * l.transpose();
       std::vector<double> mu(u.data(), u.data() + u.size());
       std::vector<double> sigma(s.data(), s.data() + s.size());
-      j["cores"].push_back({{"mu", mu}, {"sigma", sigma}});
+      j["c"].push_back({{"u", mu}, {"s", sigma}});
     }
     return j.dump();
   }
@@ -191,19 +191,19 @@ class mix {
   bool Import(const std::string& model) {
     try {
       auto j = nlohmann::json::parse(model);
-      int r = j["rank"];
-      int d = j["dim"];
-      std::vector<double> w = j["weights"];
+      int r = j["r"];
+      int d = j["d"];
+      std::vector<double> w = j["w"];
       if ((int)w.size() != r) {
         return false;
       }
-      std::vector<mvn> c(j["cores"].size());
+      std::vector<mvn> c(j["c"].size());
       if ((int)c.size() != r) {
         return false;
       }
-      for (int i = 0; i < (int)j["cores"].size(); i++) {
-        std::vector<double> mu = j["cores"][i]["mu"];
-        std::vector<double> sigma = j["cores"][i]["sigma"];
+      for (int i = 0; i < (int)j["c"].size(); i++) {
+        std::vector<double> mu = j["c"][i]["u"];
+        std::vector<double> sigma = j["c"][i]["s"];
         if ((int)mu.size() != d || (int)sigma.size() != d * d) {
           return false;
         }
