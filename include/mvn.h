@@ -224,8 +224,8 @@ class mix {
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "mu:\n" << cores[i].getu() << "\n";
-      std::cout << "sigma:\n"
+      std::cout << "u:\n" << cores[i].getu() << "\n";
+      std::cout << "s:\n"
                 << cores[i].getl() * cores[i].getl().transpose() << "\n\n";
     }
   }
@@ -327,8 +327,8 @@ class trainer {
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "mu:\n" << means[i] << "\n";
-      std::cout << "sigma:\n" << covs[i] << "\n";
+      std::cout << "m:\n" << means[i] << "\n";
+      std::cout << "s:\n" << covs[i] << "\n";
     }
   }
 

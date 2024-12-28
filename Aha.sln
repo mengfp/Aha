@@ -10,10 +10,16 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test.vcxproj", "{FB
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "aha", "aha\aha.vcxproj", "{B41CAAA0-14FE-40D8-9689-84F7E3ED0A8A}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "py", "py", "{79E6EFE0-016F-4AC8-832B-34CDF076D233}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "pybind", "pybind", "{79E6EFE0-016F-4AC8-832B-34CDF076D233}"
 	ProjectSection(SolutionItems) = preProject
 		src\py_aha.cpp = src\py_aha.cpp
 		setup.py = setup.py
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{39C005FC-A217-4496-8374-88FFAF64DABF}"
+	ProjectSection(SolutionItems) = preProject
+		scripts\multivariate_normal.py = scripts\multivariate_normal.py
+		scripts\test.py = scripts\test.py
 	EndProjectSection
 EndProject
 Global

@@ -33,7 +33,7 @@ double Model::Predict(const std::vector<double>& x,
   Map<const Vector> _x(x.data(), x.size());
   Vector _y;
   auto r = ((mix*)p)->Predict(_x, _y);
-  y = std::vector<double>(_y.begin(), _y.end());
+  y.assign(_y.begin(), _y.end());
   return r;
 }
 

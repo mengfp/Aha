@@ -5,7 +5,7 @@
 #include <pybind11/stl.h>
 #include <version.h>
 
-namespace pb = pybind11;
+namespace py = pybind11;
 using namespace aha;
 
 PYBIND11_MODULE(aha, m) {
@@ -15,23 +15,30 @@ PYBIND11_MODULE(aha, m) {
   m.def("Version", Version);
 
   // class Model
-  pb::class_<Model>(m, "Model")
-    .def(pb::init<int, int>(), pb::arg("rank"), pb::arg("dim"))
+  py::class_<Model>(m, "Model")
+    .def(py::init<int, int>(), py::arg("rank"), py::arg("dim"))
     .def("Initialized", &Model::Initialized)
     .def("Rank", &Model::Rank)
     .def("Dim", &Model::Dim)
-    .def("Predict", &Model::Predict, pb::arg("x"), pb::arg("y"))
+    .def(
+      "Predict",
+      [](const Model& self, const std::vector<double>& x) {
+        std::vector<double> y;
+        auto r = self.Predict(x, y);
+        return py::make_tuple(r, y);
+      },
+      py::arg("x"))
     .def("Export", &Model::Export)
-    .def("Import", &Model::Import);
+    .def("Import", &Model::Import, py::arg("model"));
 
   // class Trainer
-  pb::class_<Trainer>(m, "Trainer")
-    .def(pb::init<Model&, uint64_t>(), pb::arg("model"), pb::arg("seed") = 0)
+  py::class_<Trainer>(m, "Trainer")
+    .def(py::init<Model&, uint64_t>(), py::arg("model"), py::arg("seed") = 0)
     .def("Rank", &Trainer::Rank)
     .def("Dim", &Trainer::Dim)
     .def("Entropy", &Trainer::Entropy)
     .def("Reset", &Trainer::Reset)
-    .def("Train", &Trainer::Train)
-    .def("Merge", &Trainer::Merge)
+    .def("Train", &Trainer::Train, py::arg("sample"))
+    .def("Merge", &Trainer::Merge, py::arg("trainer"))
     .def("Update", &Trainer::Update);
 }
