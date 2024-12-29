@@ -1,11 +1,7 @@
 #ifndef AHA_MVN_H
 #define AHA_MVN_H
 
-#ifdef _MSC_VER
-#pragma warning(disable : 4819)
-#endif
-
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 #include <cassert>
 #include <cfloat>
 #include <iostream>
@@ -15,12 +11,16 @@
 #include "generator.h"
 
 #ifndef M_PI
-#define M_PI 3.1415926535897932384626
+#define M_PI 3.14159265358979323846264338327950288
 #endif
 
 using namespace Eigen;
+#ifndef Vector
 #define Vector VectorXd
+#endif
+#ifndef Matrix
 #define Matrix MatrixXd
+#endif
 
 using json = nlohmann::ordered_json;
 

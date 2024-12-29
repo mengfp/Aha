@@ -1,11 +1,7 @@
 #ifndef AHA_GENERATOR_H
 #define AHA_GENERATOR_H
 
-#ifdef _MSC_VER
-#pragma warning(disable : 4819)
-#endif
-
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 #include <chrono>
 #include <vector>
 

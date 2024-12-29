@@ -1,6 +1,10 @@
 // Test.cpp : This file contains the 'main' function. Program execution begins
 // and ends there.
 //
+#ifdef _MSC_VER
+#pragma warning(disable : 4819)
+#endif
+
 #include <aha.h>
 #include <generator.h>
 #include <mvn.h>

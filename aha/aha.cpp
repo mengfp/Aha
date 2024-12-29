@@ -1,3 +1,7 @@
+#ifdef _MSC_VER
+#pragma warning(disable : 4819)
+#endif
+
 #include <aha.h>
 #include <mvn.h>
 #include <version.h>

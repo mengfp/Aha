@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
+
 import sys
 from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 import re
+
+if sys.platform == "win32":
+    CXX11 = "/std:c++11"
+    CXX14 = "/std:c++14"
+    CXX17 = "/std:c++17"
+    CXX20 = "/std:c++20"
+else:
+    CXX11 = "-std=c++11"
+    CXX14 = "-std=c++14"
+    CXX17 = "-std=c++17"
+    CXX20 = "-std=c++20"
 
 
 def get_version():
@@ -23,7 +35,6 @@ setup_info = dict(
     url="https://github.com/mengfp/Aha",
     description="Multivariate Multiscale Nonlinear Analysis and Modelling",
     python_requires=">=3.7",
-    cmdclass={"build_ext": build_ext},
     install_requires=[],
     packages=[],
     ext_modules=[
@@ -31,6 +42,7 @@ setup_info = dict(
             "aha",
             ["aha/aha.cpp", "src/py_aha.cpp"],
             include_dirs=["include", "eigen"],
+            extra_compile_args=[CXX17],
         ),
     ],
     scripts=[],
