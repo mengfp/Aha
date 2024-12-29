@@ -24,19 +24,26 @@ using namespace Eigen;
 
 using json = nlohmann::ordered_json;
 
+/*
+** 多元正态分布
+*/
 class mvn {
  public:
+  // 构造函数
   mvn() {
   }
 
+  // 构造函数
   mvn(const Vector& mu, const Matrix& sigma) {
     Initialize(mu, sigma);
   }
 
+  // 获取维数
   int Dim() const {
     return (int)u.size();
   }
 
+  // 初始化，Cholesky分解
   void Initialize(const Vector& mu, const Matrix& sigma) {
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
@@ -52,6 +59,7 @@ class mvn {
     }
   }
 
+  // 计算对数概率密度
   double Evaluate(const Vector& x) const {
     assert(x.size() == u.size());
     auto n = u.size();
@@ -59,7 +67,7 @@ class mvn {
                    n * log(2 * M_PI) + d(n - 1));
   }
 
-  // Usually you don't need it
+  // 计算对数边缘概率密度
   double PartialEvaluate(const Vector& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
@@ -70,6 +78,7 @@ class mvn {
                    k * log(2 * M_PI) + d(k - 1));
   }
 
+  // 计算对数边缘概率密度和条件期望
   double Predict(const Vector& x, Vector& y) const {
     assert(x.size() <= u.size());
     auto n = u.size();
@@ -95,23 +104,31 @@ class mvn {
   Vector d;
 };
 
+/*
+** 混合正态分布
+*/
 class mix {
  public:
+  // 构造函数
   mix(int rank = 0, int dim = 0) : rank(rank), dim(dim) {
   }
 
+  // 获取初始化状态
   bool Initialized() const {
     return cores.size() > 0;
   }
 
+  // 获取阶数
   int Rank() const {
     return rank;
   }
 
+  // 获取维数
   int Dim() const {
     return dim;
   }
 
+  // 初始化
   void Initialize(const std::vector<double>& weights,
                   const std::vector<Vector>& means,
                   const std::vector<Matrix>& covs) {
@@ -124,6 +141,7 @@ class mix {
     }
   }
 
+  // 计算对数概率密度和分类权重
   double Evaluate(const Vector& x, std::vector<double>& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
@@ -145,6 +163,7 @@ class mix {
     return log(sum) + wmax;
   }
 
+  // 计算对数边缘概率密度和条件期望
   double Predict(const Vector& x, Vector& y) const {
     assert((int)x.size() <= dim);
     double wmax = -DBL_MAX;
@@ -168,6 +187,7 @@ class mix {
     return log(sum) + wmax;
   }
 
+  // 导出Json字符串
   std::string Export() const {
     json j;
     if (!Initialized()) {
@@ -188,6 +208,7 @@ class mix {
     return j.dump();
   }
 
+  // 导入Json字符串
   bool Import(const std::string& model) {
     try {
       auto j = nlohmann::json::parse(model);
@@ -237,8 +258,12 @@ class mix {
   std::vector<mvn> cores;
 };
 
+/*
+** 模型训练器
+*/
 class trainer {
  public:
+  // 构造函数
   trainer(mix& m, uint64_t seed = 0)
     : m(m),
       rank(m.Rank()),
@@ -251,6 +276,7 @@ class trainer {
       temp(m.Rank()) {
   }
 
+  // 清空记忆
   void Reset() {
     entropy = 0;
     for (int i = 0; i < rank; i++) {
@@ -261,6 +287,7 @@ class trainer {
     }
   }
 
+  // 添加一个样本
   void Train(const Vector& sample) {
     if (m.Initialized()) {
       entropy -= m.Evaluate(sample, temp);
@@ -280,6 +307,7 @@ class trainer {
     }
   }
 
+  // 合并两个训练器
   void Merge(const trainer& trainer) {
     entropy += trainer.entropy;
     for (int i = 0; i < rank; i++) {
@@ -289,6 +317,7 @@ class trainer {
     }
   }
 
+  // 更新模型
   void Update() {
     double s = 0;
     for (auto& w : weights) {
@@ -312,14 +341,17 @@ class trainer {
     m.Initialize(weights, means, covs);
   }
 
+  // 获取阶数
   int Rank() const {
     return rank;
   }
 
+  // 获取维数
   int Dim() const {
     return dim;
   }
 
+  // 获取熵值。熵值越小说明数据拟合度越好。
   double Entropy() const {
     return entropy;
   }
