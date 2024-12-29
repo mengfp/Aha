@@ -2,12 +2,12 @@
 #pragma warning(disable : 4819)
 #endif
 
-#include <aha.h>
-#include <pybind11/eigen.h>
-#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/numpy.h>
+#include <pybind11/eigen.h>
 #include <version.h>
+#include <aha.h>
 
 namespace py = pybind11;
 using namespace aha;
@@ -32,6 +32,19 @@ PYBIND11_MODULE(aha, m) {
         return py::make_tuple(r, y);
       },
       py::arg("x"))
+    .def(
+      "BatchPredict",
+      [](const Model& self, const Matrix& x) {
+        Vector r = Vector::Zero(x.rows());
+        Matrix y = Matrix::Zero(x.rows(), self.Dim() - x.cols());
+        Vector temp;
+        for (int i = 0; i < (int)x.rows(); i++) {
+          r[i] = self.Predict(x.row(i), temp);
+          y.row(i) = temp;
+        }
+        return py::make_tuple(r, y);
+      },
+      py::arg("x"))
     .def("Export", &Model::Export)
     .def("Import", &Model::Import, py::arg("model"));
 
@@ -42,7 +55,20 @@ PYBIND11_MODULE(aha, m) {
     .def("Dim", &Trainer::Dim)
     .def("Entropy", &Trainer::Entropy)
     .def("Reset", &Trainer::Reset)
-    .def("Train", &Trainer::Train, py::arg("sample"))
+    .def(
+      "Train",
+      [](Trainer& self, const std::vector<double>& sample) {
+        return self.Train(sample);
+      },
+      py::arg("sample"))
+    .def(
+      "BatchTrain",
+      [](Trainer& self, const Matrix& samples) {
+        for (auto row : samples.rowwise()) {
+          self.Train(row);
+        }
+      },
+      py::arg("samples"))
     .def("Merge", &Trainer::Merge, py::arg("trainer"))
     .def("Update", &Trainer::Update);
 }

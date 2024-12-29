@@ -9,5 +9,6 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortFunctionsOnASingleLine: None
 ContinuationIndentWidth: 2
 ConstructorInitializerIndentWidth: 2
+SortIncludes: false
 ...
 

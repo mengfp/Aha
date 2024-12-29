@@ -3,6 +3,15 @@
 
 #include <string>
 #include <vector>
+#include <Eigen/Dense>
+
+using namespace Eigen;
+#ifndef Vector
+#define Vector VectorXd
+#endif
+#ifndef Matrix
+#define Matrix MatrixXd
+#endif
 
 namespace aha {
 
@@ -15,6 +24,7 @@ class Model {
   bool Initialized() const;
   int Rank() const;
   int Dim() const;
+  double Predict(const Vector& x, Vector& y) const;
   double Predict(const std::vector<double>& x, std::vector<double>& y) const;
   std::string Export() const;
   bool Import(const std::string& model);
@@ -31,6 +41,7 @@ class Trainer {
   int Dim() const;
   double Entropy() const;
   void Reset();
+  void Train(const Vector& sample);
   void Train(const std::vector<double>& sample);
   void Merge(const Trainer& t);
   void Update();

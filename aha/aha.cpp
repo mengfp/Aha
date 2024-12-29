@@ -32,6 +32,10 @@ int Model::Dim() const {
   return ((mix*)p)->Dim();
 }
 
+double Model::Predict(const Vector& x, Vector& y) const {
+  return ((mix*)p)->Predict(x, y);
+}
+
 double Model::Predict(const std::vector<double>& x,
                       std::vector<double>& y) const {
   Map<const Vector> _x(x.data(), x.size());
@@ -71,6 +75,10 @@ double Trainer::Entropy() const {
 
 void Trainer::Reset() {
   ((trainer*)p)->Reset();
+}
+
+void Trainer::Train(const Vector& sample) {
+  ((trainer*)p)->Train(sample);
 }
 
 void Trainer::Train(const std::vector<double>& sample) {
