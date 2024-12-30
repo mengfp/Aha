@@ -121,7 +121,7 @@ class GenNonLinear {
     auto c = rand.randNorm(0.0, 1.0);
     sample[0] = a;
     sample[1] = b;
-    sample[2] = a * b + 0.1 * c;
+    sample[2] = a * b + c;
   }
 
  protected:

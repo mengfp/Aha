@@ -12,6 +12,9 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <chrono>
+
+using namespace std::chrono;
 
 bool TestGaussian() {
   Vector mu(4);
@@ -156,55 +159,45 @@ bool TestAha() {
 }
 
 bool TestNonLinear() {
-  GenNonLinear gen;
-  gen.Init(1);
-  std::vector<double> sample(3);
   int N = 1000000;
+  GenNonLinear gen;
 
-  aha::Model m1(1, 3);
-  aha::Model m3(3, 3);
-  aha::Model m5(5, 3);
-
-  aha::Trainer t1(m1);
-  aha::Trainer t3(m3);
-  aha::Trainer t5(m5);
-
-  for (int k = 0; k < 50; k++) {
-    t1.Reset();
-    t3.Reset();
-    t5.Reset();
-
-    for (int i = 0; i < N; i++) {
-      gen.gen(sample);
-      t1.Train(sample);
-      t3.Train(sample);
-      t5.Train(sample);
-    }
-
-    t1.Update();
-    t3.Update();
-    t5.Update();
-
-    std::cout << "Entropy = " << t1.Entropy() << " " << t3.Entropy() << " "
-              << t5.Entropy() << std::endl;
+  std::vector<std::vector<double>> samples;
+  std::vector<double> sample(3);
+  for (int i = 0; i < N; i++) {
+    gen.gen(sample);
+    samples.push_back(sample);
   }
+
+  // Train
+  aha::Model model(5, 3);
+  aha::Trainer trainer(model);
+
+  auto now = steady_clock::now();
+  for (int k = 0; k < 20; k++) {
+    trainer.Reset();
+    for (auto& s : samples) {
+      trainer.Train(s);
+    }
+    trainer.Update();
+    std::cout << k << ": Entropy = " << trainer.Entropy() << std::endl;
+  }
+  std::cout << "Train time = "
+            << duration<double>(steady_clock::now() - now).count() << std::endl;
 
   // Predict
-  std::ofstream ofs("nonlinear.csv");
-  ofs << "X, Y, Z, Z1, Z3, Z5" << std::endl;
-  for (int i = 0; i < 100; i++) {
-    std::vector<double> sample(3);
-    gen.gen(sample);
-    ofs << sample[0] << "," << sample[1] << "," << sample[2];
+  now = steady_clock::now();
+  double d = 0.0;
+  for (auto& s : samples) {
+    std::vector<double> x(&s[0], &s[2]);
     std::vector<double> y;
-    sample.resize(2);
-    m1.Predict(sample, y);
-    ofs << "," << y[0];
-    m3.Predict(sample, y);
-    ofs << "," << y[0];
-    m5.Predict(sample, y);
-    ofs << "," << y[0] << std::endl;
+    model.Predict(x, y);
+    d += pow(y[0] - s[2], 2);
   }
+  d /= N;
+  std::cout << "MSE = " << d << std::endl;
+  std::cout << "Predict time = "
+            << duration<double>(steady_clock::now() - now).count() << std::endl;
 
   return true;
 }
@@ -273,12 +266,12 @@ bool TestImportExport() {
 }
 
 int main() {
-  TestGaussian();
-  TestRand();
-  TestTrain();
-  TestAha();
+  // TestGaussian();
+  // TestRand();
+  // TestTrain();
+  // TestAha();
   TestNonLinear();
-  TestMVNGenerator();
-  TestImportExport();
+  // TestMVNGenerator();
+  // TestImportExport();
   return 0;
 }

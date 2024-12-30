@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from codetiming import Timer
+from sklearn.metrics import mean_squared_error
 from aha import Model, Trainer
 
 # 生成数据
@@ -15,12 +17,12 @@ def generate_data(size = 1000000):
 # 训练模型
 # rank: 圈数
 # loop: 迭代次数
-def train(rank, loop):
+@Timer()
+def train(df, rank, loop):
     print('Training model: rank =', rank, ', loop =', loop)
     model = Model(rank, 3)
     trainer = Trainer(model)
     for i in range(loop):
-        df = generate_data()
         trainer.Reset()
         for row in df.to_numpy():
             trainer.Train(row)
@@ -28,11 +30,25 @@ def train(rank, loop):
         print(i, ': entropy =', trainer.Entropy())
     return model
 
+# 训练模型
+# rank: 圈数
+# loop: 迭代次数
+@Timer()
+def batch_train(df, rank, loop):
+    print('Training model: rank =', rank, ', loop =', loop)
+    model = Model(rank, 3)
+    trainer = Trainer(model)
+    for i in range(loop):
+        trainer.Reset()
+        trainer.BatchTrain(df.to_numpy())
+        trainer.Update()
+        print(i, ': entropy =', trainer.Entropy())
+    return model
 
 # 测试模型性能，计算均方误差
-def test(model):
+@Timer()
+def test(model, df):
     d = 0.0
-    df = generate_data()
     for row in df.to_numpy():
         r, z = model.Predict(row[:2])
         e = z[0] - row[2]
@@ -41,27 +57,45 @@ def test(model):
     print('MSE =', d)
     return d
 
+# 测试模型性能，计算均方误差
+@Timer()
+def batch_test(model, df):
+    d = 0.0
+    r, z = model.BatchPredict(df[['x', 'y']])
+    d = mean_squared_error(df['z'], z)
+    print('MSE =', d)
+    return d
+
+train = batch_train
+test = batch_test
 
 # 主程序
 if __name__ == "__main__":
+    df = generate_data()
+
     # Rank 1
-    model = train(1, 5)
-    test(model)
+    model = train(df, 1, 10)
+    test(model, df)
+    print()
 
     # Rank 2
-    model = train(2, 20)
-    test(model)
+    model = train(df, 2, 20)
+    test(model, df)
+    print()
 
     # Rank 3
-    model = train(3, 20)
-    test(model)
+    model = train(df, 3, 20)
+    test(model, df)
+    print()
 
     # Rank 4
-    model = train(4, 20)
-    test(model)
+    model = train(df, 4, 20)
+    test(model, df)
+    print()
     
     # Rank 5
-    model = train(5, 20)
-    test(model)
+    model = train(df, 5, 20)
+    test(model, df)
+    print()
 
     print('Model =', model.Export())
