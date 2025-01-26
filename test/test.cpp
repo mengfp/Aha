@@ -174,7 +174,7 @@ bool TestNonLinear() {
   aha::Trainer trainer(model);
 
   auto now = steady_clock::now();
-  for (int k = 0; k < 20; k++) {
+  for (int k = 0; k < 30; k++) {
     trainer.Reset();
     for (auto& s : samples) {
       trainer.Train(s);

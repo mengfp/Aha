@@ -331,12 +331,20 @@ class trainer {
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {
+#if 0
+      // 随机初始化
       MVNGenerator gen(means[0], covs[0], seed);
       for (int i = 0; i < rank; i++) {
         means[i] = gen.Gen();
         Vector diagonal = covs[i].diagonal();
         covs[i] = diagonal.asDiagonal();
       }
+#else
+      // 确定性初始化
+      for (int i = 0; i < rank; i++) {
+        covs[i] *= (i + 1) * (i + 1);
+      }
+#endif
     }
     m.Initialize(weights, means, covs);
   }
