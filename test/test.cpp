@@ -246,9 +246,9 @@ bool TestImportExport() {
 
   covs[0] = Matrix::Identity(3, 3);
   covs[1] = Matrix::Zero(3, 3);
-  covs[1] << 100, 32.4796258609215869, 31.6838227860951349,
-    32.4796258609215869, 110.549260960654465, -152.033658539600196,
-    31.6838227860951349, -152.033658539600196, 373.530902783367878;
+  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 32.4796258609215869,
+    110.549260960654465, -152.033658539600196, 31.6838227860951349,
+    -152.033658539600196, 373.530902783367878;
 
   mix m;
   m.Initialize(weights, means, covs);
@@ -282,6 +282,154 @@ bool TestSpitSwallow() {
   return true;
 }
 
+#define EPS 1.0e-2
+
+inline bool eq(const std::vector<double>& a, const std::vector<double>& b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (int i = 0; i < (int)a.size(); i++) {
+    if (fabs(a[i] - b[i]) > EPS) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool eq(const Vector& a, const Vector& b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (int i = 0; i < (int)a.size(); i++) {
+    if (fabs(a[i] - b[i]) > EPS) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool eq(const Matrix& a, const Matrix& b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (int i = 0; i < (int)a.size(); i++) {
+    if (fabs(a.data()[i] - b.data()[i]) > EPS) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Functional Verification Test
+bool FVTest() {
+  const int RANK = 3;
+  const int DIM = 3;
+  const int N = 100000;
+  const int LOOP = 30;
+
+  std::vector<MVNGenerator> generators(RANK);
+  for (int i = 0; i < RANK; i++) {
+    Vector mean = Vector::Ones(DIM) * i * 10;
+    Matrix cov = Matrix::Identity(DIM, DIM);
+    generators[i].Init(mean, cov, i);
+  }
+
+  mix m(RANK, DIM);
+  trainer t(m);
+
+  // Single trainer
+  for (int loop = 0; loop < LOOP; loop++) {
+    t.Reset();
+    for (int i = 0; i < N; i++) {
+      t.Train(generators[0].Gen());
+      t.Train(generators[0].Gen());
+      t.Train(generators[0].Gen());
+      t.Train(generators[1].Gen());
+      t.Train(generators[1].Gen());
+      t.Train(generators[2].Gen());
+    }
+    t.Update();
+    std::cout << loop << ": " << t.Entropy() << std::endl;
+  }
+
+  // To and from json
+  auto json = m.Export();
+  if (json.empty()) {
+    return false;
+  }
+  if (!m.Import(json)) {
+    return false;
+  }
+
+  m.Sort();
+  m.Print();
+
+  // Verify
+  if (m.Rank() != RANK) {
+    return false;
+  }
+  if (m.Dim() != DIM) {
+    return false;
+  }
+  if (!eq(m.GetWeights(), {0.5, 0.3333, 0.1667})) {
+    return false;
+  }
+  for (int i = 0; i < RANK; i++) {
+    if (!eq(m.GetCores()[i].getu(), generators[i].mean)) {
+      return false;
+    }
+    if (!eq(m.GetCores()[i].getl(), generators[i].L)) {
+      return false;
+    }
+  }
+
+  // Multiple trainer
+  trainer t0(m);
+  trainer t1(m);
+  trainer t2(m);
+  for (int loop = 0; loop < LOOP; loop++) {
+    t.Reset();
+    t0.Reset();
+    t1.Reset();
+    t2.Reset();
+    for (int i = 0; i < N; i++) {
+      t0.Train(generators[0].Gen());
+      t0.Train(generators[0].Gen());
+      t1.Train(generators[0].Gen());
+      t1.Train(generators[1].Gen());
+      t2.Train(generators[1].Gen());
+      t2.Train(generators[2].Gen());
+    }
+    t.Swallow(t0.Spit());
+    t.Swallow(t1.Spit());
+    t.Swallow(t2.Spit());
+    t.Update();
+    std::cout << loop << ": " << t.Entropy() << std::endl;
+  }
+  m.Print();
+
+  // Verify
+  if (m.Rank() != RANK) {
+    return false;
+  }
+  if (m.Dim() != DIM) {
+    return false;
+  }
+  if (!eq(m.GetWeights(), {0.5, 0.3333, 0.1667})) {
+    return false;
+  }
+  for (int i = 0; i < RANK; i++) {
+    if (!eq(m.GetCores()[i].getu(), generators[i].mean)) {
+      return false;
+    }
+    if (!eq(m.GetCores()[i].getl(), generators[i].L)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 int main() {
   // TestGaussian();
   // TestRand();
@@ -290,6 +438,13 @@ int main() {
   // TestNonLinear();
   // TestMVNGenerator();
   // TestImportExport();
-  TestSpitSwallow();
+  // TestSpitSwallow();
+
+  if (FVTest()) {
+    std::cout << "### OK ###" << std::endl;
+  } else {
+    std::cout << "*** Failed ***" << std::endl;
+  }
+
   return 0;
 }

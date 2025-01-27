@@ -128,6 +128,16 @@ class mix {
     return dim;
   }
 
+  // 获取权重
+  std::vector<double> GetWeights() const {
+    return weights;
+  }
+  
+  // 获取内核
+  std::vector<mvn> GetCores() const {
+    return cores;
+  }
+
   // 初始化
   void Initialize(const std::vector<double>& weights,
                   const std::vector<Vector>& means,
@@ -239,6 +249,19 @@ class mix {
       return true;
     } catch (...) {
       return false;
+    }
+  }
+
+  // 按权重从大到小笨拙排序
+  void Sort() {
+    for (int i = 0; i < rank - 1; i++) {
+      for (int j = i + 1; j < rank; j++) {
+        if (weights[i] < weights[j]) {
+          // 交换位置
+          std::swap(weights[i], weights[j]);
+          std::swap(cores[i], cores[j]); 
+        }
+      }
     }
   }
 
@@ -395,9 +418,12 @@ class trainer {
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {
-      // 初始化
+      // 随机初始化
+      MVNGenerator gen(means[0], covs[0]);
       for (int i = 0; i < rank; i++) {
-        covs[i] *= (i + 1) * (i + 1);
+        means[i] = gen.Gen();
+        Vector diagonal = covs[i].diagonal();
+        covs[i] = diagonal.asDiagonal();
       }
     }
     m.Initialize(weights, means, covs);

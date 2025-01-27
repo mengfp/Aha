@@ -130,7 +130,14 @@ class GenNonLinear {
 
 class MVNGenerator {
  public:
+  MVNGenerator() {
+  }
+
   MVNGenerator(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
+    Init(mean, cov, seed);
+  }
+
+  void Init(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
     this->mean = mean;
     this->L = LLT<Matrix>(cov.selfadjointView<Lower>()).matrixL();
     if (seed == 0) {
@@ -138,7 +145,7 @@ class MVNGenerator {
     } else {
       seed = std::hash<long long>()(seed);
     }
-    rand.seed((MTRand::uint32*)&seed, 2);
+    rand.seed((MTRand::uint32*)&seed, 2);  
   }
 
   Vector Gen() {
@@ -149,7 +156,7 @@ class MVNGenerator {
     return L.triangularView<Lower>() * v + mean;
   }
 
- private:
+ public:
   Vector mean;
   Matrix L;
   MTRand rand;
