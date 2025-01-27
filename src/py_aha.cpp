@@ -50,7 +50,7 @@ PYBIND11_MODULE(aha, m) {
 
   // class Trainer
   py::class_<Trainer>(m, "Trainer")
-    .def(py::init<Model&, uint64_t>(), py::arg("model"), py::arg("seed") = 0)
+    .def(py::init<Model&>(), py::arg("model"))
     .def("Rank", &Trainer::Rank)
     .def("Dim", &Trainer::Dim)
     .def("Entropy", &Trainer::Entropy)

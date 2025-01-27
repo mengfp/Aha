@@ -53,8 +53,8 @@ bool Model::Import(const std::string& model) {
   return ((mix*)p)->Import(model);
 }
 
-Trainer::Trainer(Model& m, uint64_t seed) {
-  p = new trainer(*(mix*)*(void**)&m, seed);
+Trainer::Trainer(Model& m) {
+  p = new trainer(*(mix*)*(void**)&m);
 }
 
 Trainer::~Trainer() {

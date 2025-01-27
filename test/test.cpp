@@ -239,18 +239,17 @@ bool TestImportExport() {
   weights[0] = 0.1;
   weights[1] = 0.9;
 
-  means[0] = Vector::Zero(4);
-  means[0] << 1, 2, 3, 4;
-  means[1] = Vector::Zero(4);
-  means[1] << 4, 3, 2, 1;
+  means[0] = Vector::Zero(3);
+  means[0] << 1, 2, 3;
+  means[1] = Vector::Zero(3);
+  means[1] << 3, 2, 1;
 
-  covs[0] = Matrix::Identity(4, 4);
-  covs[1] = Matrix::Zero(4, 4);
-  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
+  covs[0] = Matrix::Identity(3, 3);
+  covs[1] = Matrix::Zero(3, 3);
+  covs[1] << 100, 32.4796258609215869, 31.6838227860951349,
     32.4796258609215869, 110.549260960654465, -152.033658539600196,
-    237.757814080695653, 31.6838227860951349, -152.033658539600196,
-    373.530902783367878, -140.279703673223594, 141.409621752763684,
-    237.757814080695653, -140.279703673223594, 827.467631118572399;
+    31.6838227860951349, -152.033658539600196, 373.530902783367878;
+
   mix m;
   m.Initialize(weights, means, covs);
   std::cout << "Original:" << std::endl;
@@ -265,13 +264,32 @@ bool TestImportExport() {
   return true;
 }
 
+bool TestSpitSwallow() {
+  mix m(2, 3);
+  trainer t(m);
+
+  std::string j = R"({
+        "r": 2,
+        "d": 3,
+        "e": 0.1,
+        "w": [1, 2],
+        "m": [[100, 200, 300], [400, 500, 600]],
+        "c": [[1,2,3,4,5,6,7,8,9], [9,8,7,6,5,4,3,2,1]]
+          })";
+  std::cout << t.Swallow(j) << std::endl;
+  std::cout << t.Spit() << std::endl;
+
+  return true;
+}
+
 int main() {
   // TestGaussian();
   // TestRand();
   // TestTrain();
   // TestAha();
-  TestNonLinear();
+  // TestNonLinear();
   // TestMVNGenerator();
   // TestImportExport();
+  TestSpitSwallow();
   return 0;
 }

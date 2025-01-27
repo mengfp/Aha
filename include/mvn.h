@@ -197,7 +197,7 @@ class mix {
     j["d"] = dim;
     j["w"] = weights;
     j["c"] = {};
-    for (int i = 0; i < (int)cores.size(); i++) {
+    for (int i = 0; i < rank; i++) {
       auto& u = cores[i].getu();
       auto& l = cores[i].getl();
       Matrix s = l * l.transpose();
@@ -214,15 +214,15 @@ class mix {
       auto j = nlohmann::json::parse(model);
       int r = j["r"];
       int d = j["d"];
+      if ((int)j["w"].size() != r) {
+        return false;
+      }
+      if ((int)j["c"].size() != r) {
+        return false;
+      }
       std::vector<double> w = j["w"];
-      if ((int)w.size() != r) {
-        return false;
-      }
-      std::vector<mvn> c(j["c"].size());
-      if ((int)c.size() != r) {
-        return false;
-      }
-      for (int i = 0; i < (int)j["c"].size(); i++) {
+      std::vector<mvn> c(r);
+      for (int i = 0; i < r; i++) {
         std::vector<double> mu = j["c"][i]["u"];
         std::vector<double> sigma = j["c"][i]["s"];
         if ((int)mu.size() != d || (int)sigma.size() != d * d) {
@@ -264,7 +264,7 @@ class mix {
 class trainer {
  public:
   // 构造函数
-  trainer(mix& m, uint64_t seed = 0)
+  trainer(mix& m)
     : m(m),
       rank(m.Rank()),
       dim(m.Dim()),
@@ -273,6 +273,7 @@ class trainer {
       means(m.Rank()),
       covs(m.Rank()),
       temp(m.Rank()) {
+    Reset();
   }
 
   // 清空记忆
@@ -307,12 +308,76 @@ class trainer {
   }
 
   // 合并两个训练器
-  void Merge(const trainer& trainer) {
-    entropy += trainer.entropy;
+  bool Merge(const trainer& t) {
+    if (t.rank != rank) {
+      return false;
+    }
+    if (t.dim != dim) {
+      return false;
+    }
+    entropy += t.entropy;
     for (int i = 0; i < rank; i++) {
-      weights[i] += trainer.weights[i];
-      means[i] += trainer.means[i];
-      covs[i] += (trainer.covs[i]).selfadjointView<Lower>();
+      weights[i] += t.weights[i];
+      means[i] += t.means[i];
+      covs[i] += (t.covs[i]).selfadjointView<Lower>();
+    }
+    return true;
+  }
+
+  // 导出训练结果
+  std::string Spit() const {
+    json j;
+    j["r"] = rank;
+    j["d"] = dim;
+    j["e"] = entropy;
+    j["w"] = weights;
+    j["m"] = {};
+    j["c"] = {};
+    for (int i = 0; i < rank; i++) {
+      std::vector<double> m(means[i].data(), means[i].data() + means[i].size());
+      j["m"].push_back(m);
+      std::vector<double> c(covs[i].data(), covs[i].data() + covs[i].size());
+      j["c"].push_back(c);
+    }
+    return j.dump();
+  }
+
+  // 合并训练结果
+  bool Swallow(const std::string& s) {
+    try {
+      auto j = nlohmann::json::parse(s);
+      if ((int)j["r"] != rank) {
+        return false;
+      }
+      if ((int)j["d"] != dim) {
+        return false;
+      }
+      if ((int)j["w"].size() != rank) {
+        return false;
+      }
+      if ((int)j["m"].size() != rank) {
+        return false;
+      }
+      if ((int)j["c"].size() != rank) {
+        return false;
+      }
+      entropy += (double)j["e"];
+      for (int i = 0; i < rank; i++) {
+        weights[i] += (double)j["w"][i];
+        std::vector<double> m = j["m"][i];
+        if ((int)m.size() != dim) {
+          return false;
+        }
+        means[i] += Map<Vector>(m.data(), dim);
+        std::vector<double> c = j["c"][i];
+        if ((int)c.size() != dim * dim) {
+          return false;
+        }
+        covs[i] += Map<Matrix>(c.data(), dim, dim);
+      }
+      return true;
+    } catch (...) {
+      return false;
     }
   }
 
