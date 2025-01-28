@@ -90,6 +90,14 @@ void Trainer::Merge(const Trainer& t) {
   ((trainer*)p)->Merge(*(const trainer*)*(void**)&t);
 }
 
+std::string Trainer::Spit() {
+  return ((trainer*)p)->Spit();
+}
+
+bool Trainer::Swallow(const std::string& t) {
+  return ((trainer*)p)->Swallow(t);
+}
+
 void Trainer::Update() {
   ((trainer*)p)->Update();
 }

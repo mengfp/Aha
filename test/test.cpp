@@ -92,8 +92,8 @@ bool TestTrain() {
   const int rank = 3;
   const int dim = 3;
 
-  mix mix(rank, dim);
-  trainer train(mix);
+  mix m(rank, dim);
+  trainer train(m);
   Generator gen;
   Vector sample = Vector::Zero(dim);
 
@@ -334,9 +334,9 @@ bool FVTest() {
     generators[i].Init(mean, cov, i);
   }
 
-  mix m(RANK, DIM);
-  trainer t(m);
-
+  aha::Model m(RANK, DIM);
+  mix *p = *(mix**)&m;
+  aha::Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
     t.Reset();
@@ -361,8 +361,8 @@ bool FVTest() {
     return false;
   }
 
-  m.Sort();
-  m.Print();
+  p->Sort();
+  p->Print();
 
   // Verify
   if (m.Rank() != RANK) {
@@ -371,22 +371,22 @@ bool FVTest() {
   if (m.Dim() != DIM) {
     return false;
   }
-  if (!eq(m.GetWeights(), {0.5, 0.3333, 0.1667})) {
+  if (!eq(p->GetWeights(), {0.5, 0.3333, 0.1667})) {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(m.GetCores()[i].getu(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
       return false;
     }
-    if (!eq(m.GetCores()[i].getl(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
       return false;
     }
   }
 
   // Multiple trainer
-  trainer t0(m);
-  trainer t1(m);
-  trainer t2(m);
+  aha::Trainer t0(m);
+  aha::Trainer t1(m);
+  aha::Trainer t2(m);
   for (int loop = 0; loop < LOOP; loop++) {
     t.Reset();
     t0.Reset();
@@ -400,13 +400,19 @@ bool FVTest() {
       t2.Train(generators[1].Gen());
       t2.Train(generators[2].Gen());
     }
+#if 1
     t.Swallow(t0.Spit());
     t.Swallow(t1.Spit());
     t.Swallow(t2.Spit());
+#else
+    t.Merge(t0);
+    t.Merge(t1);
+    t.Merge(t2);
+#endif
     t.Update();
     std::cout << loop << ": " << t.Entropy() << std::endl;
   }
-  m.Print();
+  p->Print();
 
   // Verify
   if (m.Rank() != RANK) {
@@ -415,14 +421,14 @@ bool FVTest() {
   if (m.Dim() != DIM) {
     return false;
   }
-  if (!eq(m.GetWeights(), {0.5, 0.3333, 0.1667})) {
+  if (!eq(p->GetWeights(), {0.5, 0.3333, 0.1667})) {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(m.GetCores()[i].getu(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
       return false;
     }
-    if (!eq(m.GetCores()[i].getl(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
       return false;
     }
   }

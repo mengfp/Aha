@@ -44,6 +44,8 @@ class Trainer {
   void Train(const Vector& sample);
   void Train(const std::vector<double>& sample);
   void Merge(const Trainer& t);
+  std::string Spit();
+  bool Swallow(const std::string& t);
   void Update();
 
  private:
