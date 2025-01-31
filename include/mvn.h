@@ -132,7 +132,7 @@ class mix {
   std::vector<double> GetWeights() const {
     return weights;
   }
-  
+
   // 获取内核
   std::vector<mvn> GetCores() const {
     return cores;
@@ -259,7 +259,7 @@ class mix {
         if (weights[i] < weights[j]) {
           // 交换位置
           std::swap(weights[i], weights[j]);
-          std::swap(cores[i], cores[j]); 
+          std::swap(cores[i], cores[j]);
         }
       }
     }
@@ -297,17 +297,6 @@ class trainer {
       covs(m.Rank()),
       temp(m.Rank()) {
     Reset();
-  }
-
-  // 清空记忆
-  void Reset() {
-    entropy = 0;
-    for (int i = 0; i < rank; i++) {
-      weights[i] = 0;
-      means[i] = Vector::Zero(dim);
-      covs[i] = Matrix::Zero(dim, dim);
-      temp[i] = 0;
-    }
   }
 
   // 添加一个样本
@@ -405,7 +394,7 @@ class trainer {
   }
 
   // 更新模型
-  void Update() {
+  double Update() {
     double s = 0;
     for (auto& w : weights) {
       s += w;
@@ -427,6 +416,9 @@ class trainer {
       }
     }
     m.Initialize(weights, means, covs);
+    auto ret = entropy;
+    Reset();
+    return ret;
   }
 
   // 获取阶数
@@ -439,16 +431,24 @@ class trainer {
     return dim;
   }
 
-  // 获取熵值。熵值越小说明数据拟合度越好。
-  double Entropy() const {
-    return entropy;
-  }
-
+  // 输出
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
       std::cout << "m:\n" << means[i] << "\n";
       std::cout << "s:\n" << covs[i] << "\n";
+    }
+  }
+
+ protected:
+  // 清空记忆
+  void Reset() {
+    entropy = 0;
+    for (int i = 0; i < rank; i++) {
+      weights[i] = 0;
+      means[i] = Vector::Zero(dim);
+      covs[i] = Matrix::Zero(dim, dim);
+      temp[i] = 0;
     }
   }
 

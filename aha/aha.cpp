@@ -69,14 +69,6 @@ int Trainer::Dim() const {
   return ((trainer*)p)->Dim();
 }
 
-double Trainer::Entropy() const {
-  return ((trainer*)p)->Entropy();
-}
-
-void Trainer::Reset() {
-  ((trainer*)p)->Reset();
-}
-
 void Trainer::Train(const Vector& sample) {
   ((trainer*)p)->Train(sample);
 }
@@ -98,8 +90,8 @@ bool Trainer::Swallow(const std::string& t) {
   return ((trainer*)p)->Swallow(t);
 }
 
-void Trainer::Update() {
-  ((trainer*)p)->Update();
+double Trainer::Update() {
+  return ((trainer*)p)->Update();
 }
 
 }  // namespace aha

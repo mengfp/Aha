@@ -53,8 +53,6 @@ PYBIND11_MODULE(aha, m) {
     .def(py::init<Model&>(), py::arg("model"))
     .def("Rank", &Trainer::Rank)
     .def("Dim", &Trainer::Dim)
-    .def("Entropy", &Trainer::Entropy)
-    .def("Reset", &Trainer::Reset)
     .def(
       "Train",
       [](Trainer& self, const std::vector<double>& sample) {
@@ -70,7 +68,7 @@ PYBIND11_MODULE(aha, m) {
       },
       py::arg("samples"))
     .def("Merge", &Trainer::Merge, py::arg("trainer"))
-    .def("Update", &Trainer::Update)
     .def("Spit", &Trainer::Spit)
-    .def("Swallow", &Trainer::Swallow, py::arg("trainer"));
+    .def("Swallow", &Trainer::Swallow, py::arg("trainer"))
+    .def("Update", &Trainer::Update);
 }

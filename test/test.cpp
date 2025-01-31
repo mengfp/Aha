@@ -99,13 +99,12 @@ bool TestTrain() {
 
   for (int k = 0; k < 20; k++) {
     gen.Initialize(rank, dim, seed);
-    train.Reset();
     for (int i = 0; i < N; i++) {
       gen.Gen(sample);
       train.Train(sample);
     }
-    train.Update();
-    std::cout << "Entropy = " << train.Entropy() << std::endl;
+    auto entropy = train.Update();
+    std::cout << "Entropy = " << entropy << std::endl;
   }
 
   std::cout << "Generator:" << std::endl;
@@ -130,14 +129,13 @@ bool TestAha() {
   aha::Trainer trainer(model);
 
   for (int k = 0; k < 30; k++) {
-    trainer.Reset();
     std::vector<double> sample(3);
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
       trainer.Train(sample);
     }
-    trainer.Update();
-    std::cout << "Entropy = " << trainer.Entropy() << std::endl;
+    auto e = trainer.Update();
+    std::cout << "Entropy = " << e << std::endl;
   }
 
   // Test predict
@@ -175,12 +173,11 @@ bool TestNonLinear() {
 
   auto now = steady_clock::now();
   for (int k = 0; k < 30; k++) {
-    trainer.Reset();
     for (auto& s : samples) {
       trainer.Train(s);
     }
-    trainer.Update();
-    std::cout << k << ": Entropy = " << trainer.Entropy() << std::endl;
+    auto e = trainer.Update();
+    std::cout << k << ": Entropy = " << e << std::endl;
   }
   std::cout << "Train time = "
             << duration<double>(steady_clock::now() - now).count() << std::endl;
@@ -218,14 +215,13 @@ bool TestMVNGenerator() {
   trainer t(m);
 
   for (int k = 0; k < 10; k++) {
-    t.Reset();
     for (int i = 0; i < N; i++) {
       auto sample = gen.Gen();
       t.Train(sample);
       t.Train(sample);
     }
-    t.Update();
-    std::cout << "Entropy = " << t.Entropy() << std::endl;
+    auto e = t.Update();
+    std::cout << "Entropy = " << e << std::endl;
   }
   t.Print();
   return true;
@@ -339,7 +335,6 @@ bool FVTest() {
   aha::Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
-    t.Reset();
     for (int i = 0; i < N; i++) {
       t.Train(generators[0].Gen());
       t.Train(generators[0].Gen());
@@ -348,8 +343,8 @@ bool FVTest() {
       t.Train(generators[1].Gen());
       t.Train(generators[2].Gen());
     }
-    t.Update();
-    std::cout << loop << ": " << t.Entropy() << std::endl;
+    auto e = t.Update();
+    std::cout << loop << ": " << e << std::endl;
   }
 
   // To and from json
@@ -388,10 +383,6 @@ bool FVTest() {
   aha::Trainer t1(m);
   aha::Trainer t2(m);
   for (int loop = 0; loop < LOOP; loop++) {
-    t.Reset();
-    t0.Reset();
-    t1.Reset();
-    t2.Reset();
     for (int i = 0; i < N; i++) {
       t0.Train(generators[0].Gen());
       t0.Train(generators[0].Gen());
@@ -409,8 +400,8 @@ bool FVTest() {
     t.Merge(t1);
     t.Merge(t2);
 #endif
-    t.Update();
-    std::cout << loop << ": " << t.Entropy() << std::endl;
+    auto e = t.Update();
+    std::cout << loop << ": " << e << std::endl;
   }
   p->Print();
 

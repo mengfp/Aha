@@ -39,14 +39,12 @@ class Trainer {
   ~Trainer();
   int Rank() const;
   int Dim() const;
-  double Entropy() const;
-  void Reset();
   void Train(const Vector& sample);
   void Train(const std::vector<double>& sample);
   void Merge(const Trainer& t);
   std::string Spit();
   bool Swallow(const std::string& t);
-  void Update();
+  double Update();
 
  private:
   void* p;
