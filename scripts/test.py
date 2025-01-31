@@ -23,11 +23,10 @@ def train(df, rank, loop):
     model = Model(rank, 3)
     trainer = Trainer(model)
     for i in range(loop):
-        trainer.Reset()
         for row in df.to_numpy():
             trainer.Train(row)
-        trainer.Update()
-        print(i, ': entropy =', trainer.Entropy())
+        e = trainer.Update()
+        print(i, ': entropy =', e)
     return model
 
 # 训练模型
@@ -39,10 +38,9 @@ def batch_train(df, rank, loop):
     model = Model(rank, 3)
     trainer = Trainer(model)
     for i in range(loop):
-        trainer.Reset()
         trainer.BatchTrain(df.to_numpy())
-        trainer.Update()
-        print(i, ': entropy =', trainer.Entropy())
+        e = trainer.Update()
+        print(i, ': entropy =', e)
     return model
 
 # 测试模型性能，计算均方误差
