@@ -320,18 +320,18 @@ class trainer {
   }
 
   // 合并两个训练器
-  bool Merge(const trainer& t) {
+  bool Merge(const trainer& t, double w = 1.0) {
     if (t.rank != rank) {
       return false;
     }
     if (t.dim != dim) {
       return false;
     }
-    entropy += t.entropy;
+    entropy += t.entropy * w;
     for (int i = 0; i < rank; i++) {
-      weights[i] += t.weights[i];
-      means[i] += t.means[i];
-      covs[i] += (t.covs[i]).selfadjointView<Lower>();
+      weights[i] += t.weights[i] * w;
+      means[i] += t.means[i] * w;
+      covs[i] += (t.covs[i] * w).selfadjointView<Lower>();
     }
     return true;
   }
@@ -355,7 +355,7 @@ class trainer {
   }
 
   // 合并训练结果
-  bool Swallow(const std::string& s) {
+  bool Swallow(const std::string& s, double w = 1.0) {
     try {
       auto j = nlohmann::json::parse(s);
       if ((int)j["r"] != rank) {
@@ -373,19 +373,19 @@ class trainer {
       if ((int)j["c"].size() != rank) {
         return false;
       }
-      entropy += (double)j["e"];
+      entropy += (double)j["e"] * w;
       for (int i = 0; i < rank; i++) {
-        weights[i] += (double)j["w"][i];
+        weights[i] += (double)j["w"][i] * w;
         std::vector<double> m = j["m"][i];
         if ((int)m.size() != dim) {
           return false;
         }
-        means[i] += Map<Vector>(m.data(), dim);
+        means[i] += Map<Vector>(m.data(), dim) * w;
         std::vector<double> c = j["c"][i];
         if ((int)c.size() != dim * dim) {
           return false;
         }
-        covs[i] += Map<Matrix>(c.data(), dim, dim);
+        covs[i] += Map<Matrix>(c.data(), dim, dim) * w;
       }
       return true;
     } catch (...) {

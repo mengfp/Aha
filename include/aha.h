@@ -41,9 +41,9 @@ class Trainer {
   int Dim() const;
   void Train(const Vector& sample);
   void Train(const std::vector<double>& sample);
-  void Merge(const Trainer& t);
+  void Merge(const Trainer& t, double w = 1.0);
   std::string Spit();
-  bool Swallow(const std::string& t);
+  bool Swallow(const std::string& t, double w = 1.0);
   double Update();
 
  private:

@@ -67,8 +67,8 @@ PYBIND11_MODULE(aha, m) {
         }
       },
       py::arg("samples"))
-    .def("Merge", &Trainer::Merge, py::arg("trainer"))
+    .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
-    .def("Swallow", &Trainer::Swallow, py::arg("trainer"))
+    .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Update", &Trainer::Update);
 }

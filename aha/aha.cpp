@@ -78,16 +78,16 @@ void Trainer::Train(const std::vector<double>& sample) {
   ((trainer*)p)->Train(s);
 }
 
-void Trainer::Merge(const Trainer& t) {
-  ((trainer*)p)->Merge(*(const trainer*)*(void**)&t);
+void Trainer::Merge(const Trainer& t, double w) {
+  ((trainer*)p)->Merge(*(const trainer*)*(void**)&t, w);
 }
 
 std::string Trainer::Spit() {
   return ((trainer*)p)->Spit();
 }
 
-bool Trainer::Swallow(const std::string& t) {
-  return ((trainer*)p)->Swallow(t);
+bool Trainer::Swallow(const std::string& t, double w) {
+  return ((trainer*)p)->Swallow(t, w);
 }
 
 double Trainer::Update() {
