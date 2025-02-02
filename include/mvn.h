@@ -414,6 +414,7 @@ class trainer {
         Vector diagonal = covs[i].diagonal();
         covs[i] = diagonal.asDiagonal();
       }
+      entropy = std::numeric_limits<double>::infinity();
     }
     m.Initialize(weights, means, covs);
     auto ret = entropy;
