@@ -1,3 +1,6 @@
+/*
+** Copyright 2025 Meng, Fanping. All rights reserved.
+*/
 #ifndef AHA_MVN_H
 #define AHA_MVN_H
 

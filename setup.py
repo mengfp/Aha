@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+#
+# Copyright 2025 Meng, Fanping. All rights reserved.
+#
 import sys
 from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension, build_ext

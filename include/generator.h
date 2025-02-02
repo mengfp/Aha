@@ -1,3 +1,6 @@
+/*
+** Copyright 2025 Meng, Fanping. All rights reserved.
+*/
 #ifndef AHA_GENERATOR_H
 #define AHA_GENERATOR_H
 

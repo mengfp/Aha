@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+#
+# Copyright 2025 Meng, Fanping. All rights reserved.
+#
 import numpy as np
 import pandas as pd
 from codetiming import Timer
