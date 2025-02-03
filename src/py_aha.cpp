@@ -48,6 +48,7 @@ PYBIND11_MODULE(aha, m) {
         return py::make_tuple(r, y);
       },
       py::arg("x"))
+    .def("Sort", &Model::Sort)
     .def("Export", &Model::Export)
     .def("Import", &Model::Import, py::arg("model"));
 

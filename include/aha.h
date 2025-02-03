@@ -29,6 +29,7 @@ class Model {
   int Dim() const;
   double Predict(const Vector& x, Vector& y) const;
   double Predict(const std::vector<double>& x, std::vector<double>& y) const;
+  void Sort();
   std::string Export() const;
   bool Import(const std::string& model);
 

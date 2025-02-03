@@ -48,6 +48,10 @@ double Model::Predict(const std::vector<double>& x,
   return r;
 }
 
+void Model::Sort() {
+  return ((mix*)p)->Sort();
+}
+
 std::string Model::Export() const {
   return ((mix*)p)->Export();
 }
