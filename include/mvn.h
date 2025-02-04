@@ -397,7 +397,7 @@ class trainer {
   }
 
   // 更新模型（对角线加载为可选项）
-  double Update(double lambda = 0.0) {
+  double Update(double noise_floor = 0.0) {
     double s = 0;
     for (auto& w : weights) {
       s += w;
@@ -407,7 +407,7 @@ class trainer {
       means[i] /= weights[i];
       covs[i] = (covs[i] / weights[i] - means[i] * means[i].transpose())
                   .selfadjointView<Lower>();
-      covs[i] += Matrix::Identity(dim, dim) * lambda;
+      covs[i] += Matrix::Identity(dim, dim) * noise_floor * noise_floor;
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {

@@ -97,8 +97,8 @@ bool Trainer::Swallow(const std::string& t, double w) {
   return ((trainer*)p)->Swallow(t, w);
 }
 
-double Trainer::Update(double lambda) {
-  return ((trainer*)p)->Update(lambda);
+double Trainer::Update(double noise_floor) {
+  return ((trainer*)p)->Update(noise_floor);
 }
 
 }  // namespace aha

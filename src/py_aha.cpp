@@ -74,5 +74,5 @@ PYBIND11_MODULE(aha, m) {
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
-    .def("Update", &Trainer::Update, py::arg("l") = 0.0);
+    .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0);
 }
