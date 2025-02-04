@@ -413,7 +413,7 @@ class trainer {
     if (!m.Initialized() && rank > 0) {
       // 随机初始化
       MVNGenerator gen(means[0], covs[0]);
-      for (int i = 1; i < rank; i++) {
+      for (int i = 0; i < rank; i++) {
         means[i] = gen.Gen();
       }
       entropy = std::numeric_limits<double>::infinity();

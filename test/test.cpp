@@ -343,7 +343,7 @@ bool FVTest() {
       t.Train(generators[1].Gen());
       t.Train(generators[2].Gen());
     }
-    auto e = t.Update();
+    auto e = t.Update(1.0e-6);
     std::cout << loop << ": " << e << std::endl;
   }
 
@@ -400,7 +400,7 @@ bool FVTest() {
     t.Merge(t1);
     t.Merge(t2);
 #endif
-    auto e = t.Update();
+    auto e = t.Update(1.0e-6);
     std::cout << loop << ": " << e << std::endl;
   }
   p->Print();
