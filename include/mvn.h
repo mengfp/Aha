@@ -322,7 +322,7 @@ class trainer {
     }
   }
 
-  // 合并两个训练器
+  // 合并两个训练器（w为样本权重）
   bool Merge(const trainer& t, double w = 1.0) {
     if (t.rank != rank) {
       return false;
@@ -357,7 +357,7 @@ class trainer {
     return j.dump();
   }
 
-  // 合并训练结果
+  // 合并训练结果（w为样本权重）
   bool Swallow(const std::string& s, double w = 1.0) {
     try {
       auto j = nlohmann::json::parse(s);
@@ -396,8 +396,8 @@ class trainer {
     }
   }
 
-  // 更新模型
-  double Update() {
+  // 更新模型（对角线加载为可选项）
+  double Update(double lambda = 0.0) {
     double s = 0;
     for (auto& w : weights) {
       s += w;
@@ -407,6 +407,7 @@ class trainer {
       means[i] /= weights[i];
       covs[i] = (covs[i] / weights[i] - means[i] * means[i].transpose())
                   .selfadjointView<Lower>();
+      covs[i] += Matrix::Identity(dim, dim) * lambda;
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {
@@ -414,8 +415,6 @@ class trainer {
       MVNGenerator gen(means[0], covs[0]);
       for (int i = 0; i < rank; i++) {
         means[i] = gen.Gen();
-        Vector diagonal = covs[i].diagonal();
-        covs[i] = diagonal.asDiagonal();
       }
       entropy = std::numeric_limits<double>::infinity();
     }

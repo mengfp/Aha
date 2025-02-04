@@ -48,7 +48,7 @@ class Trainer {
   void Merge(const Trainer& t, double w = 1.0);
   std::string Spit();
   bool Swallow(const std::string& t, double w = 1.0);
-  double Update();
+  double Update(double lambda = 0.0);
 
  private:
   void* p;
