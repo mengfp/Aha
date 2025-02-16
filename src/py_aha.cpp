@@ -65,20 +65,12 @@ PYBIND11_MODULE(aha, m) {
       py::arg("sample"))
     .def(
       "BatchTrain",
-      [](Trainer& self, const Matrix& samples, int step = 1) {
-        if (step == 1) {
-          for (auto row : samples.rowwise()) {
-            self.Train(row);
-          }
-        } else {
-          int i = 0;
-          for (auto row : samples.rowwise()) {
-            if (i++ % step == 0) self.Train(row);
-          }
+      [](Trainer& self, const Matrix& samples) {
+        for (auto row : samples.rowwise()) {
+          self.Train(row);
         }
       },
-      py::arg("samples"),
-      py::arg("step") = 1)
+      py::arg("samples"))
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
