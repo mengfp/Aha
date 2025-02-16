@@ -71,8 +71,9 @@ PYBIND11_MODULE(aha, m) {
             self.Train(row);
           }
         } else {
-          for (int i = 0; i < samples.rows(); i += step) {
-            self.Train(samples.row(i));          
+          int i = 0;
+          for (auto row : samples.rowwise()) {
+            if (i++ % step == 0) self.Train(row);
           }
         }
       },
