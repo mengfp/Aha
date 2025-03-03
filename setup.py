@@ -8,16 +8,9 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 import re
 
 if sys.platform == "win32":
-    CXX11 = "/std:c++11"
-    CXX14 = "/std:c++14"
-    CXX17 = "/std:c++17"
-    CXX20 = "/std:c++20"
+    CXX_OPTIONS = ["/std:c++17"]
 else:
-    CXX11 = "-std=c++11"
-    CXX14 = "-std=c++14"
-    CXX17 = "-std=c++17"
-    CXX20 = "-std=c++20"
-
+    CXX_OPTIONS = ["-std=c++17", "-O3", "-march=native", "-mavx2"]
 
 def get_version():
     with open("include/version.h") as f:
@@ -44,7 +37,7 @@ setup_info = dict(
             "aha",
             ["aha/aha.cpp", "src/py_aha.cpp"],
             include_dirs=["include", "eigen"],
-            extra_compile_args=[CXX17],
+            extra_compile_args=CXX_OPTIONS,
         ),
     ],
     scripts=[],
