@@ -10,7 +10,9 @@ import re
 if sys.platform == "win32":
     CXX_OPTIONS = ["/std:c++17"]
 else:
-    CXX_OPTIONS = ["-std=c++17", "-O3", "-march=native", "-mavx2"]
+    CXX_OPTIONS = ["-std=c++17", "-O3"]
+    # Native optimization
+    CXX_OPTIONS += ["-march=native"]
 
 def get_version():
     with open("include/version.h") as f:
