@@ -23,7 +23,7 @@ PYBIND11_MODULE(aha, m) {
 
   // class Model
   py::class_<Model>(m, "Model")
-    .def(py::init<int, int>(), py::arg("rank"), py::arg("dim"))
+    .def(py::init<int, int>(), py::arg("rank") = 0, py::arg("dim") = 0)
     .def("Initialized", &Model::Initialized)
     .def("Rank", &Model::Rank)
     .def("Dim", &Model::Dim)

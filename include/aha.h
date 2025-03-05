@@ -22,7 +22,7 @@ std::string Version();
 
 class Model {
  public:
-  Model(int rank, int dim);
+  Model(int rank = 0, int dim = 0);
   ~Model();
   bool Initialized() const;
   int Rank() const;
