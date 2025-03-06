@@ -112,7 +112,7 @@ class mix {
   }
 
   // 获取权重
-  auto GetWeights() const {
+  std::vector<double> GetWeights() const {
     return weights;
   }
 
