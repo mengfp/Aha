@@ -121,6 +121,7 @@ bool TestTrain() {
 
   for (int k = 0; k < 20; k++) {
     gen.Initialize(rank, dim, seed);
+    train.Reset();
     for (int i = 0; i < N; i++) {
       gen.Gen(sample);
       train.Train(sample);
@@ -152,6 +153,7 @@ bool TestAha() {
 
   for (int k = 0; k < 30; k++) {
     std::vector<real> sample(3);
+    trainer.Reset();
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
       trainer.Train(sample);
@@ -195,6 +197,7 @@ bool TestNonLinear() {
 
   auto now = steady_clock::now();
   for (int k = 0; k < 30; k++) {
+    trainer.Reset();
     for (auto& s : samples) {
       trainer.Train(s);
     }
@@ -238,6 +241,7 @@ bool TestMVNGenerator() {
   trainer t(m);
 
   for (int k = 0; k < 10; k++) {
+    t.Reset();
     for (int i = 0; i < N; i++) {
       auto sample = gen.Gen().cast<real>();
       t.Train(sample);
@@ -359,6 +363,7 @@ bool FVTest() {
   Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
+    t.Reset();
     for (int i = 0; i < N; i++) {
       t.Train(generators[0].Gen().cast<real>());
       t.Train(generators[0].Gen().cast<real>());
@@ -407,6 +412,10 @@ bool FVTest() {
   Trainer t1(m);
   Trainer t2(m);
   for (int loop = 0; loop < LOOP; loop++) {
+    t.Reset();
+    t0.Reset();
+    t1.Reset();
+    t2.Reset();
     for (int i = 0; i < N; i++) {
       t0.Train(generators[0].Gen().cast<real>());
       t0.Train(generators[0].Gen().cast<real>());
@@ -424,9 +433,6 @@ bool FVTest() {
     t.Merge(t1);
     t.Merge(t2);
 #endif
-    t0.Reset();
-    t1.Reset();
-    t2.Reset();
     auto e = t.Update(1.0e-3);
     std::cout << loop << ": " << e << std::endl;
   }

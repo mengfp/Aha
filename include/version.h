@@ -4,6 +4,6 @@
 #ifndef AHA_VERSION_H
 #define AHA_VERSION_H
 
-#define VERSION "0.9.0"
+#define VERSION "0.9.1"
 
 #endif

@@ -74,7 +74,8 @@ PYBIND11_MODULE(aha, m) {
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)     \
     .def("Spit", &Trainer::Spit)                                               \
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0) \
-    .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0);
+    .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0)             \
+    .def("Reset", &Trainer::Reset);
 
   DECL(Model64, "Model64", Trainer64, "Trainer64", MatrixXd, VectorXd, double)
   DECL(Model32, "Model32", Trainer32, "Trainer32", MatrixXf, VectorXf, float)

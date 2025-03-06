@@ -282,7 +282,6 @@ class trainer {
       means(m.Rank()),
       covs(m.Rank()),
       temp(m.Rank()) {
-    Reset();
   }
 
   // 添加一个样本
@@ -402,9 +401,7 @@ class trainer {
       entropy = std::numeric_limits<double>::infinity();
     }
     m.Initialize(weights, means, covs);
-    auto ret = entropy;
-    Reset();
-    return ret;
+    return entropy;
   }
 
   // 获取阶数
