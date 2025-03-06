@@ -107,7 +107,7 @@ class Gen2 {
     } else if (r == 1) {
       sample[0] = T(x - 1);
       sample[1] = T(y * 1000 - 1);
-      sample[2] = T(- y * 1000 + z - 1);
+      sample[2] = T(-y * 1000 + z - 1);
     } else {
       sample[0] = T(x * 1000);
       sample[1] = T(y * 1000);

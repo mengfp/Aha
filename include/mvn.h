@@ -85,8 +85,7 @@ class mvn {
     assert(x.size() <= u.size());
     auto n = u.size();
     auto k = x.size();
-    V temp =
-      l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
+    V temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
     return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
   }
