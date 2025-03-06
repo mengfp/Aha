@@ -18,14 +18,20 @@ using namespace std::chrono;
 using namespace aha;
 using namespace Eigen;
 
-#if 1
+#if 0
 #define real double
 #define Model Model64
 #define Trainer Trainer64
+#define mvn mvn64
+#define mix mix64
+#define trainer trainer64
 #else
 #define real float
 #define Model Model32
 #define Trainer Trainer32
+#define mvn mvn32
+#define mix mix32
+#define trainer trainer32
 #endif
 
 using V = Matrix<real, -1, 1>;
@@ -45,7 +51,7 @@ bool TestGaussian() {
   x << -52.8138247836419055f, 167.036008837659296f, -254.908653564947315f,
     437.285521520668226f;
   x += mu;
-  mvn<real> g(mu, sigma);
+  mvn g(mu, sigma);
   auto e = 1.0e-12;
 
   auto error = g.Evaluate(x) - (-248.438063922770f);
@@ -108,8 +114,8 @@ bool TestTrain() {
   const int rank = 3;
   const int dim = 3;
 
-  mix<real> m(rank, dim);
-  trainer<real> train(m);
+  mix m(rank, dim);
+  trainer train(m);
   Generator gen;
   V sample = V::Zero(dim);
 
@@ -167,7 +173,7 @@ bool TestAha() {
     std::cout << "prediction: " << y[0] << std::endl;
   }
 
-  (**(::trainer<real>**)(&trainer)).Print();
+  (**(::trainer**)(&trainer)).Print();
 
   return true;
 }
@@ -228,8 +234,8 @@ bool TestMVNGenerator() {
     827.467631118572399f;
   MVNGenerator gen(mean.cast<double>(), cov.cast<double>(), 1);
 
-  mix<real> m(1, 4);
-  trainer<real> t(m);
+  mix m(1, 4);
+  trainer t(m);
 
   for (int k = 0; k < 10; k++) {
     for (int i = 0; i < N; i++) {
@@ -263,14 +269,14 @@ bool TestImportExport() {
     32.4796258609215869f, 110.549260960654465f, -152.033658539600196f,
     31.6838227860951349f, -152.033658539600196f, 373.530902783367878f;
 
-  mix<real> m;
+  mix m;
   m.Initialize(weights, means, covs);
   std::cout << "Original:" << std::endl;
   m.Print();
   std::string model = m.Export();
   std::cout << "Exported:" << std::endl;
   std::cout << model << std::endl;
-  mix<real> m2;
+  mix m2;
   m2.Import(model);
   std::cout << "Imported:" << std::endl;
   m2.Print();
@@ -278,8 +284,8 @@ bool TestImportExport() {
 }
 
 bool TestSpitSwallow() {
-  mix<real> m(2, 3);
-  trainer<real> t(m);
+  mix m(2, 3);
+  trainer t(m);
 
   std::string j = R"({
         "r": 2,
@@ -349,7 +355,7 @@ bool FVTest() {
   }
 
   Model m(RANK, DIM);
-  mix<real>* p = *(mix<real>**)&m;
+  mix* p = *(mix**)&m;
   Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
