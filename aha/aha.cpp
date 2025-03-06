@@ -17,7 +17,7 @@ std::string Version() {
   return VERSION;
 }
 
-#define AHA_IMPLEMENT(Model, Trainer, mix, trainer, V, T)                   \
+#define AHA_IMPL(Model, Trainer, mix, trainer, V, T)                        \
                                                                             \
   Model::Model(int rank, int dim) {                                         \
     p = new mix(rank, dim);                                                 \
@@ -108,7 +108,7 @@ std::string Version() {
     ((trainer*)p)->Reset();                                                 \
   }
 
-AHA_IMPLEMENT(Model64, Trainer64, mix64, trainer64, VectorXd, double)
-AHA_IMPLEMENT(Model32, Trainer32, mix32, trainer32, VectorXf, float)
+AHA_IMPL(Model64, Trainer64, mix64, trainer64, VectorXd, double)
+AHA_IMPL(Model32, Trainer32, mix32, trainer32, VectorXf, float)
 
 }  // namespace aha

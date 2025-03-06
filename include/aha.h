@@ -14,7 +14,7 @@ using namespace Eigen;
 
 std::string Version();
 
-#define AHA_DECLARE(Model, Trainer, V, T)                             \
+#define AHA_DECL(Model, Trainer, V, T)                             \
   class Model {                                                       \
    public:                                                            \
     Model(int rank = 0, int dim = 0);                                 \
@@ -50,8 +50,8 @@ std::string Version();
     void* p;                                                          \
   };
 
-AHA_DECLARE(Model64, Trainer64, VectorXd, double)
-AHA_DECLARE(Model32, Trainer32, VectorXf, float)
+AHA_DECL(Model64, Trainer64, VectorXd, double)
+AHA_DECL(Model32, Trainer32, VectorXf, float)
 
 }  // namespace aha
 
