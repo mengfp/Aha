@@ -9,8 +9,8 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
+#include <Eigen/Dense>
 
-#include "eigen.h"
 #include "generator.h"
 
 #ifndef M_PI
@@ -19,6 +19,7 @@
 
 namespace aha {
 
+using namespace Eigen;
 using json = nlohmann::ordered_json;
 
 /*
@@ -27,79 +28,82 @@ using json = nlohmann::ordered_json;
 template <typename T>
 class mvn {
  public:
+  using V = Matrix<T, -1, 1>;
+  using M = Matrix<T, -1, -1>;
+
   // 构造函数
   mvn() {
   }
 
   // 构造函数
-  mvn(const Vector<T>& mu, const Matrix<T>& sigma) {
+  mvn(const V& mu, const M& sigma) {
     Initialize(mu, sigma);
   }
 
   // 获取维数
   int Dim() const {
-    return (int)u.size();
+    return int(u.size());
   }
 
   // 初始化，Cholesky分解
-  void Initialize(const Vector<T>& mu, const Matrix<T>& sigma) {
+  void Initialize(const V& mu, const M& sigma) {
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
-    auto llt = Eigen::LLT<Matrix<T>>(sigma.selfadjointView<Eigen::Lower>());
+    auto llt = LLT<M>(sigma.selfadjointView<Lower>());
     assert(llt.info() == Success);
     u = mu;
     l = llt.matrixL();
-    d = Vector<T>(mu.size());
+    d = V(mu.size());
     double c = 0;
     for (int i = 0; i < (int)mu.size(); i++) {
       c += 2 * log(l(i, i));
-      d(i) = (T)c;
+      d(i) = T(c);
     }
   }
 
   // 计算对数概率密度
-  double Evaluate(const Vector<T>& x) const {
+  double Evaluate(const V& x) const {
     assert(x.size() == u.size());
     auto n = u.size();
-    return -0.5 * (l.triangularView<Eigen::Lower>().solve(x - u).squaredNorm() +
+    return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
                    n * log(2 * M_PI) + d(n - 1));
   }
 
   // 计算对数边缘概率密度
-  double PartialEvaluate(const Vector<T>& x) const {
+  double PartialEvaluate(const V& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
     return -0.5 * (l.topLeftCorner(k, k)
-                     .triangularView<Eigen::Lower>()
+                     .triangularView<Lower>()
                      .solve(x - u.head(k))
                      .squaredNorm() +
                    k * log(2 * M_PI) + d(k - 1));
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const Vector<T>& x, Vector<T>& y) const {
+  double Predict(const V& x, V& y) const {
     assert(x.size() <= u.size());
     auto n = u.size();
     auto k = x.size();
-    Vector<T> temp =
-      l.topLeftCorner(k, k).triangularView<Eigen::Lower>().solve(x - u.head(k));
+    V temp =
+      l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
     return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
   }
 
  public:
-  const Vector<T>& getu() const {
+  const V& getu() const {
     return u;
   }
 
-  const Matrix<T>& getl() const {
+  const M& getl() const {
     return l;
   }
 
  protected:
-  Vector<T> u;
-  Matrix<T> l;
-  Vector<T> d;
+  V u;
+  M l;
+  V d;
 };
 
 /*
@@ -108,6 +112,9 @@ class mvn {
 template <typename T>
 class mix {
  public:
+  using V = Matrix<T, -1, 1>;
+  using M = Matrix<T, -1, -1>;
+
   // 构造函数
   mix(int rank = 0, int dim = 0) : rank(rank), dim(dim) {
   }
@@ -139,10 +146,10 @@ class mix {
 
   // 初始化
   void Initialize(const std::vector<double>& weights,
-                  const std::vector<Vector<T>>& means,
-                  const std::vector<Matrix<T>>& covs) {
-    rank = (int)weights.size();
-    dim = means.size() > 0 ? (int)means[0].size() : 0;
+                  const std::vector<V>& means,
+                  const std::vector<M>& covs) {
+    rank = int(weights.size());
+    dim = means.size() > 0 ? int(means[0].size()) : 0;
     this->weights = weights;
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
@@ -151,7 +158,7 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double Evaluate(const Vector<T>& x, std::vector<double>& w) const {
+  double Evaluate(const V& x, std::vector<double>& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
     double wmax = -DBL_MAX;
@@ -173,10 +180,10 @@ class mix {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const Vector<T>& x, Vector<T>& y) const {
-    assert((int)x.size() <= dim);
+  double Predict(const V& x, V& y) const {
+    assert(int(x.size()) <= dim);
     double wmax = -DBL_MAX;
-    std::vector<Vector<T>> v(rank);
+    std::vector<V> v(rank);
     std::vector<double> w(rank);
     for (int i = 0; i < rank; i++) {
       w[i] = cores[i].Predict(x, v[i]);
@@ -189,7 +196,7 @@ class mix {
       w[i] = weights[i] * exp(w[i] - wmax);
       sum += w[i];
     }
-    y = Vector<T>::Zero(dim - x.size());
+    y = V::Zero(dim - x.size());
     for (int i = 0; i < rank; i++) {
       y += (w[i] / sum) * v[i];
     }
@@ -209,7 +216,7 @@ class mix {
     for (int i = 0; i < rank; i++) {
       auto& u = cores[i].getu();
       auto& l = cores[i].getl();
-      Matrix<T> s = l * l.transpose();
+      M s = l * l.transpose();
       std::vector<T> mu(u.data(), u.data() + u.size());
       std::vector<T> sigma(s.data(), s.data() + s.size());
       j["c"].push_back({{"u", mu}, {"s", sigma}});
@@ -223,10 +230,10 @@ class mix {
       auto j = nlohmann::json::parse(model);
       int r = j["r"];
       int d = j["d"];
-      if ((int)j["w"].size() != r) {
+      if (int(j["w"].size()) != r) {
         return false;
       }
-      if ((int)j["c"].size() != r) {
+      if (int(j["c"].size()) != r) {
         return false;
       }
       std::vector<double> w = j["w"];
@@ -234,11 +241,11 @@ class mix {
       for (int i = 0; i < r; i++) {
         std::vector<T> mu = j["c"][i]["u"];
         std::vector<T> sigma = j["c"][i]["s"];
-        if ((int)mu.size() != d || (int)sigma.size() != d * d) {
+        if (int(mu.size()) != d || int(sigma.size()) != d * d) {
           return false;
         }
-        auto u = Eigen::Map<Vector<T>>(mu.data(), d);
-        auto s = Eigen::Map<Matrix<T>>(sigma.data(), d, d);
+        auto u = Map<V>(mu.data(), d);
+        auto s = Map<M>(sigma.data(), d, d);
         c[i].Initialize(u, s);
       }
       rank = r;
@@ -286,6 +293,9 @@ class mix {
 template <typename T>
 class trainer {
  public:
+  using V = Matrix<T, -1, 1>;
+  using M = Matrix<T, -1, -1>;
+
   // 构造函数
   trainer(mix<T>& m)
     : m(m),
@@ -300,21 +310,21 @@ class trainer {
   }
 
   // 添加一个样本
-  void Train(const Vector<T>& sample) {
+  void Train(const V& sample) {
     if (m.Initialized()) {
       entropy -= m.Evaluate(sample, temp);
-      Matrix<T> quadric = (sample * sample.transpose()).selfadjointView<Eigen::Lower>();
+      M quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
         weights[i] += temp[i];
         means[i] += sample * temp[i];
-        covs[i] += (quadric * temp[i]).selfadjointView<Eigen::Lower>();
+        covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
       }
     } else {
-      Matrix<T> quadric = (sample * sample.transpose()).selfadjointView<Eigen::Lower>();
+      M quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
         weights[i] += 1.0;
         means[i] += sample;
-        covs[i] += quadric.selfadjointView<Eigen::Lower>();
+        covs[i] += quadric.selfadjointView<Lower>();
       }
     }
   }
@@ -358,34 +368,34 @@ class trainer {
   bool Swallow(const std::string& s, double w = 1.0) {
     try {
       auto j = nlohmann::json::parse(s);
-      if ((int)j["r"] != rank) {
+      if (int(j["r"]) != rank) {
         return false;
       }
-      if ((int)j["d"] != dim) {
+      if (int(j["d"]) != dim) {
         return false;
       }
-      if ((int)j["w"].size() != rank) {
+      if (int(j["w"].size()) != rank) {
         return false;
       }
-      if ((int)j["m"].size() != rank) {
+      if (int(j["m"].size()) != rank) {
         return false;
       }
-      if ((int)j["c"].size() != rank) {
+      if (int(j["c"].size()) != rank) {
         return false;
       }
-      entropy += (double)j["e"] * w;
+      entropy += double(j["e"]) * w;
       for (int i = 0; i < rank; i++) {
-        weights[i] += (double)j["w"][i] * w;
+        weights[i] += double(j["w"][i]) * w;
         std::vector<T> m = j["m"][i];
-        if ((int)m.size() != dim) {
+        if (int(m.size()) != dim) {
           return false;
         }
-        means[i] += Eigen::Map<Vector<T>>(m.data(), dim) * w;
+        means[i] += Map<V>(m.data(), dim) * w;
         std::vector<T> c = j["c"][i];
-        if ((int)c.size() != dim * dim) {
+        if (int(c.size()) != dim * dim) {
           return false;
         }
-        covs[i] += Eigen::Map<Matrix<T>>(c.data(), dim, dim) * w;
+        covs[i] += Map<M>(c.data(), dim, dim) * w;
       }
       return true;
     } catch (...) {
@@ -401,17 +411,17 @@ class trainer {
     }
     entropy /= s;
     for (int i = 0; i < rank; i++) {
-      means[i] /= (T)weights[i];
+      means[i] /= T(weights[i]);
       covs[i] = (covs[i] / weights[i] - means[i] * means[i].transpose())
-                  .selfadjointView<Eigen::Lower>();
-      covs[i] += Matrix<T>::Identity(dim, dim) * noise_floor * noise_floor;
-      weights[i] /= (T)s;
+                  .selfadjointView<Lower>();
+      covs[i] += M::Identity(dim, dim) * noise_floor * noise_floor;
+      weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {
       // 随机初始化
-      MVNGenerator<T> gen(means[0], covs[0]);
+      MVNGenerator gen(means[0].cast<double>(), covs[0].cast<double>());
       for (int i = 0; i < rank; i++) {
-        means[i] = gen.Gen();
+        means[i] = gen.Gen().cast<T>();
       }
       entropy = std::numeric_limits<double>::infinity();
     }
@@ -445,8 +455,8 @@ class trainer {
     entropy = 0;
     for (int i = 0; i < rank; i++) {
       weights[i] = 0;
-      means[i] = Vector<T>::Zero(dim);
-      covs[i] = Matrix<T>::Zero(dim, dim);
+      means[i] = V::Zero(dim);
+      covs[i] = M::Zero(dim, dim);
       temp[i] = 0;
     }
   }
@@ -457,8 +467,8 @@ class trainer {
   int dim;
   double entropy;
   std::vector<double> weights;
-  std::vector<Vector<T>> means;
-  std::vector<Matrix<T>> covs;
+  std::vector<V> means;
+  std::vector<M> covs;
   std::vector<double> temp;
 };
 

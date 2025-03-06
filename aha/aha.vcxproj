@@ -96,14 +96,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\aha.h" />
-    <ClInclude Include="..\include\eigen.h" />
     <ClInclude Include="..\include\generator.h" />
     <ClInclude Include="..\include\MersenneTwister.h" />
     <ClInclude Include="..\include\mvn.h" />
     <ClInclude Include="..\include\version.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="aha.template" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
