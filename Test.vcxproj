@@ -85,6 +85,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\aha.h" />
+    <ClInclude Include="include\eigen.h" />
     <ClInclude Include="include\mvn.h" />
     <ClInclude Include="include\generator.h" />
     <ClInclude Include="include\MersenneTwister.h" />

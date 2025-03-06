@@ -57,6 +57,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -80,6 +81,7 @@
       <Optimization>MaxSpeed</Optimization>
       <SuppressStartupBanner>false</SuppressStartupBanner>
       <UseFullPaths>false</UseFullPaths>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -91,6 +93,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="aha.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\aha.h" />
+    <ClInclude Include="..\include\eigen.h" />
+    <ClInclude Include="..\include\generator.h" />
+    <ClInclude Include="..\include\MersenneTwister.h" />
+    <ClInclude Include="..\include\mvn.h" />
+    <ClInclude Include="..\include\version.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="aha.template" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

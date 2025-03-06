@@ -6,20 +6,14 @@
 
 #include <string>
 #include <vector>
-#include <Eigen/Dense>
 
-using namespace Eigen;
-#ifndef Vector
-#define Vector VectorXd
-#endif
-#ifndef Matrix
-#define Matrix MatrixXd
-#endif
+#include "eigen.h"
 
 namespace aha {
 
 std::string Version();
 
+template <typename T>
 class Model {
  public:
   Model(int rank = 0, int dim = 0);
@@ -27,8 +21,8 @@ class Model {
   bool Initialized() const;
   int Rank() const;
   int Dim() const;
-  double Predict(const Vector& x, Vector& y) const;
-  double Predict(const std::vector<double>& x, std::vector<double>& y) const;
+  double Predict(const Vector<T>& x, Vector<T>& y) const;
+  double Predict(const std::vector<T>& x, std::vector<T>& y) const;
   void Sort();
   std::string Export() const;
   bool Import(const std::string& model);
@@ -37,18 +31,20 @@ class Model {
   void* p;
 };
 
+template <typename T>
 class Trainer {
  public:
-  Trainer(Model& m);
+  Trainer(Model<T>& m);
   ~Trainer();
   int Rank() const;
   int Dim() const;
-  void Train(const Vector& sample);
-  void Train(const std::vector<double>& sample);
-  void Merge(const Trainer& t, double w = 1.0);
+  void Train(const Vector<T>& sample);
+  void Train(const std::vector<T>& sample);
+  bool Merge(const Trainer& t, double w = 1.0);
   std::string Spit();
   bool Swallow(const std::string& t, double w = 1.0);
   double Update(double noise_floor = 0.0);
+  void Reset();
 
  private:
   void* p;

@@ -4,17 +4,16 @@
 #ifndef AHA_GENERATOR_H
 #define AHA_GENERATOR_H
 
-#include <Eigen/Dense>
 #include <chrono>
 #include <vector>
+
+#include "eigen.h"
 
 #define register
 #include "MersenneTwister.h"
 #undef register
 
-using namespace Eigen;
-#define Vector VectorXd
-#define Matrix MatrixXd
+namespace aha {
 
 inline uint64_t nano() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -22,6 +21,7 @@ inline uint64_t nano() {
     .count();
 }
 
+template <typename T>
 class Generator {
  public:
   void Initialize(int rank, int dim, uint32_t seed) {
@@ -31,19 +31,19 @@ class Generator {
     ls.resize(rank);
     double s = 0;
     for (int i = 0; i < rank; i++) {
-      weights[i] = rand.randInt() % 3 + 1;
+      weights[i] = T(rand.randInt() % 3 + 1);
       s += weights[i];
     }
     for (int i = 0; i < rank; i++) {
-      weights[i] /= s;
-      means[i] = Vector::Zero(dim);
+      weights[i] /= T(s);
+      means[i] = Vector<T>::Zero(dim);
       for (int j = 0; j < dim; j++) {
-        means[i][j] = rand.randNorm(0.0, 1.0);
+        means[i][j] = (T)rand.randNorm(0.0, 1.0);
       }
-      ls[i] = Matrix::Identity(dim, dim);
+      ls[i] = Matrix<T>::Identity(dim, dim);
       for (int j = 0; j < dim; j++) {
         auto r = rand.randNorm(0.0, 1.0);
-        ls[i](j, j) *= (r * r + 0.5);
+        ls[i](j, j) *= T(r * r + 0.5);
         for (int k = j + 1; k < dim; k++) {
           ls[i].row(k) += ls[i].row(j) * rand.randNorm(0.0, 1.0);
         }
@@ -51,7 +51,7 @@ class Generator {
     }
   }
 
-  void Gen(Vector& sample) {
+  void Gen(Vector<T>& sample) {
     auto r = rand.rand();
     double s = 0;
     int i = 0;
@@ -62,7 +62,7 @@ class Generator {
       }
     }
     for (int j = 0; j < (int)sample.size(); j++) {
-      sample[j] = rand.randNorm(0.0, 1.0);
+      sample[j] = (T)rand.randNorm(0.0, 1.0);
     }
     sample = ls[i] * sample + means[i];
   }
@@ -76,35 +76,36 @@ class Generator {
   }
 
  protected:
-  std::vector<double> weights;
-  std::vector<Vector> means;
-  std::vector<Matrix> ls;
+  std::vector<T> weights;
+  std::vector<Vector<T>> means;
+  std::vector<Matrix<T>> ls;
   MTRand rand;
 };
 
+template <typename T>
 class Gen2 {
  public:
   void Init(uint32_t seed) {
     rand.seed(seed);
   }
 
-  void gen(std::vector<double>& sample) {
+  void gen(std::vector<T>& sample) {
     auto x = rand.randNorm(0.0, 1.0);
     auto y = rand.randNorm(0.0, 1.0);
     auto z = rand.randNorm(0.0, 1.0);
     auto r = rand.randInt() % 4;
     if (r == 0) {
-      sample[0] = x * 1000 + 1;
-      sample[1] = y + 1;
-      sample[2] = x * 1000 + z + 1;
+      sample[0] = T(x * 1000 + 1);
+      sample[1] = T(y + 1);
+      sample[2] = T(x * 1000 + z + 1);
     } else if (r == 1) {
-      sample[0] = x - 1;
-      sample[1] = y * 1000 - 1;
-      sample[2] = -y * 1000 + z - 1;
+      sample[0] = T(x - 1);
+      sample[1] = T(y * 1000 - 1);
+      sample[2] = T(- y * 1000 + z - 1);
     } else {
-      sample[0] = x * 1000;
-      sample[1] = y * 1000;
-      sample[2] = z;
+      sample[0] = T(x * 1000);
+      sample[1] = T(y * 1000);
+      sample[2] = T(z);
     }
   }
 
@@ -112,57 +113,61 @@ class Gen2 {
   MTRand rand;
 };
 
+template <typename T>
 class GenNonLinear {
  public:
   void Init(uint32_t seed) {
     rand.seed(seed);
   }
 
-  void gen(std::vector<double>& sample) {
+  void gen(std::vector<T>& sample) {
     auto a = rand.randNorm(0.0, 1.0);
     auto b = rand.randNorm(0.0, 1.0);
     auto c = rand.randNorm(0.0, 1.0);
-    sample[0] = a;
-    sample[1] = b;
-    sample[2] = a * b + c;
+    sample[0] = T(a);
+    sample[1] = T(b);
+    sample[2] = T(a * b + c);
   }
 
  protected:
   MTRand rand;
 };
 
+template <typename T>
 class MVNGenerator {
  public:
   MVNGenerator() {
   }
 
-  MVNGenerator(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
+  MVNGenerator(const Vector<T>& mean, const Matrix<T>& cov, uint64_t seed = 0) {
     Init(mean, cov, seed);
   }
 
-  void Init(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
+  void Init(const Vector<T>& mean, const Matrix<T>& cov, uint64_t seed = 0) {
     this->mean = mean;
-    this->L = LLT<Matrix>(cov.selfadjointView<Lower>()).matrixL();
+    this->L = Eigen::LLT<Matrix<T>>(cov.selfadjointView<Eigen::Lower>()).matrixL();
     if (seed == 0) {
       seed = std::hash<long long>()(nano());
     } else {
       seed = std::hash<long long>()(seed);
     }
-    rand.seed((MTRand::uint32*)&seed, 2);  
+    rand.seed((MTRand::uint32*)&seed, 2);
   }
 
-  Vector Gen() {
-    Vector v = Vector::Zero(mean.size());
+  Vector<T> Gen() {
+    Vector<T> v = Vector<T>::Zero(mean.size());
     for (auto& x : v) {
-      x = rand.randNorm(0, 1);
+      x = (T)rand.randNorm(0, 1);
     }
-    return L.triangularView<Lower>() * v + mean;
+    return L.triangularView<Eigen::Lower>() * v + mean;
   }
 
  public:
-  Vector mean;
-  Matrix L;
+  Vector<T> mean;
+  Matrix<T> L;
   MTRand rand;
 };
+
+}  // namespace aha
 
 #endif
