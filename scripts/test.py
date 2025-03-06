@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from codetiming import Timer
 from sklearn.metrics import mean_squared_error
-from aha import Model, Trainer
+from aha import Model32 as Model, Trainer32 as Trainer
 
 # 生成数据
 # x: random.normal(0, 1)
