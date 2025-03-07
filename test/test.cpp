@@ -355,24 +355,31 @@ bool FVTest() {
   for (int i = 0; i < RANK; i++) {
     V mean = V::Ones(DIM) * i * 10;
     M cov = M::Identity(DIM, DIM);
-    generators[i].Init(mean.cast<double>(), cov.cast<double>(), i);
+    generators[i].Init(mean.cast<double>(), cov.cast<double>());
   }
 
   Model m(RANK, DIM);
   mix* p = *(mix**)&m;
+  // 主教练
+  Trainer trainer(m);
+  // 副教练
   Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
-    t.Reset();
-    for (int i = 0; i < N; i++) {
-      t.Train(generators[0].Gen().cast<real>());
-      t.Train(generators[0].Gen().cast<real>());
-      t.Train(generators[0].Gen().cast<real>());
-      t.Train(generators[1].Gen().cast<real>());
-      t.Train(generators[1].Gen().cast<real>());
-      t.Train(generators[2].Gen().cast<real>());
+    trainer.Reset();
+    for (int i = 0; i < N / 10; i++) {
+      t.Reset();
+      for (int j = 0; j < 10; j++) {
+        t.Train(generators[0].Gen().cast<real>());
+        t.Train(generators[0].Gen().cast<real>());
+        t.Train(generators[0].Gen().cast<real>());
+        t.Train(generators[1].Gen().cast<real>());
+        t.Train(generators[1].Gen().cast<real>());
+        t.Train(generators[2].Gen().cast<real>());
+      }
+      trainer.Merge(t);
     }
-    auto e = t.Update(1.0e-3);
+    auto e = trainer.Update(1.0e-3);
     std::cout << loop << ": " << e << std::endl;
   }
 
@@ -413,26 +420,28 @@ bool FVTest() {
   Trainer t2(m);
   for (int loop = 0; loop < LOOP; loop++) {
     t.Reset();
-    t0.Reset();
-    t1.Reset();
-    t2.Reset();
-    for (int i = 0; i < N; i++) {
-      t0.Train(generators[0].Gen().cast<real>());
-      t0.Train(generators[0].Gen().cast<real>());
-      t1.Train(generators[0].Gen().cast<real>());
-      t1.Train(generators[1].Gen().cast<real>());
-      t2.Train(generators[1].Gen().cast<real>());
-      t2.Train(generators[2].Gen().cast<real>());
-    }
-#if 1
-    t.Swallow(t0.Spit());
-    t.Swallow(t1.Spit());
-    t.Swallow(t2.Spit());
+    for (int i = 0; i < N / 10; i++) {
+      t0.Reset();
+      t1.Reset();
+      t2.Reset();
+      for (int j = 0; j < 10; j++) {
+        t0.Train(generators[0].Gen().cast<real>());
+        t0.Train(generators[0].Gen().cast<real>());
+        t1.Train(generators[0].Gen().cast<real>());
+        t1.Train(generators[1].Gen().cast<real>());
+        t2.Train(generators[1].Gen().cast<real>());
+        t2.Train(generators[2].Gen().cast<real>());
+      }
+#if 0
+      t.Swallow(t0.Spit());
+      t.Swallow(t1.Spit());
+      t.Swallow(t2.Spit());
 #else
-    t.Merge(t0);
-    t.Merge(t1);
-    t.Merge(t2);
+      t.Merge(t0);
+      t.Merge(t1);
+      t.Merge(t2);
 #endif
+    }
     auto e = t.Update(1.0e-3);
     std::cout << loop << ": " << e << std::endl;
   }
