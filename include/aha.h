@@ -14,7 +14,7 @@ using namespace Eigen;
 
 std::string Version();
 
-#define AHA_DECL(Model, Trainer, V, T)                             \
+#define AHA_DECL(Model, Trainer, V, T)                                \
   class Model {                                                       \
    public:                                                            \
     Model(int rank = 0, int dim = 0);                                 \
