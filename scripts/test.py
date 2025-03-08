@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from codetiming import Timer
 from sklearn.metrics import mean_squared_error
-from aha import Model32 as Model, Trainer32 as Trainer
+from aha import Model, Trainer
 
 # 生成数据
 # x: random.normal(0, 1)
@@ -27,7 +27,6 @@ def train(df, rank, loop):
     model = Model(rank, 3)
     trainer = Trainer(model)
     for i in range(loop):
-        trainer.Reset()
         for row in df.to_numpy():
             trainer.Train(row)
         e = trainer.Update()
@@ -43,7 +42,6 @@ def batch_train(df, rank, loop):
     model = Model(rank, 3)
     trainer = Trainer(model)
     for i in range(loop):
-        trainer.Reset()
         trainer.BatchTrain(df.to_numpy())
         e = trainer.Update()
         print(i, ': entropy =', e)
