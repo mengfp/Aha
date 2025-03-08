@@ -4,17 +4,17 @@
 #ifndef AHA_GENERATOR_H
 #define AHA_GENERATOR_H
 
-#include <Eigen/Dense>
 #include <chrono>
 #include <vector>
+#include <Eigen/Dense>
 
 #define register
 #include "MersenneTwister.h"
 #undef register
 
+namespace aha {
+
 using namespace Eigen;
-#define Vector VectorXd
-#define Matrix MatrixXd
 
 inline uint64_t nano() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -36,11 +36,11 @@ class Generator {
     }
     for (int i = 0; i < rank; i++) {
       weights[i] /= s;
-      means[i] = Vector::Zero(dim);
+      means[i] = VectorXd::Zero(dim);
       for (int j = 0; j < dim; j++) {
         means[i][j] = rand.randNorm(0.0, 1.0);
       }
-      ls[i] = Matrix::Identity(dim, dim);
+      ls[i] = MatrixXd::Identity(dim, dim);
       for (int j = 0; j < dim; j++) {
         auto r = rand.randNorm(0.0, 1.0);
         ls[i](j, j) *= (r * r + 0.5);
@@ -51,7 +51,7 @@ class Generator {
     }
   }
 
-  void Gen(Vector& sample) {
+  void Gen(VectorXd& sample) {
     auto r = rand.rand();
     double s = 0;
     int i = 0;
@@ -77,8 +77,8 @@ class Generator {
 
  protected:
   std::vector<double> weights;
-  std::vector<Vector> means;
-  std::vector<Matrix> ls;
+  std::vector<VectorXd> means;
+  std::vector<MatrixXd> ls;
   MTRand rand;
 };
 
@@ -136,23 +136,23 @@ class MVNGenerator {
   MVNGenerator() {
   }
 
-  MVNGenerator(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
+  MVNGenerator(const VectorXd& mean, const MatrixXd& cov, uint64_t seed = 0) {
     Init(mean, cov, seed);
   }
 
-  void Init(const Vector& mean, const Matrix& cov, uint64_t seed = 0) {
+  void Init(const VectorXd& mean, const MatrixXd& cov, uint64_t seed = 0) {
     this->mean = mean;
-    this->L = LLT<Matrix>(cov.selfadjointView<Lower>()).matrixL();
+    this->L = LLT<MatrixXd>(cov.selfadjointView<Lower>()).matrixL();
     if (seed == 0) {
       seed = std::hash<long long>()(nano());
     } else {
       seed = std::hash<long long>()(seed);
     }
-    rand.seed((MTRand::uint32*)&seed, 2);  
+    rand.seed((MTRand::uint32*)&seed, 2);
   }
 
-  Vector Gen() {
-    Vector v = Vector::Zero(mean.size());
+  VectorXd Gen() {
+    VectorXd v = VectorXd::Zero(mean.size());
     for (auto& x : v) {
       x = rand.randNorm(0, 1);
     }
@@ -160,9 +160,11 @@ class MVNGenerator {
   }
 
  public:
-  Vector mean;
-  Matrix L;
+  VectorXd mean;
+  MatrixXd L;
   MTRand rand;
 };
+
+}  // namespace aha
 
 #endif

@@ -35,14 +35,14 @@ int Model::Dim() const {
   return ((mix*)p)->Dim();
 }
 
-double Model::Predict(const Vector& x, Vector& y) const {
+double Model::Predict(const VectorXd& x, VectorXd& y) const {
   return ((mix*)p)->Predict(x, y);
 }
 
 double Model::Predict(const std::vector<double>& x,
                       std::vector<double>& y) const {
-  Map<const Vector> _x(x.data(), x.size());
-  Vector _y;
+  Map<const VectorXd> _x(x.data(), x.size());
+  VectorXd _y;
   auto r = ((mix*)p)->Predict(_x, _y);
   y.assign(_y.begin(), _y.end());
   return r;
@@ -76,17 +76,17 @@ int Trainer::Dim() const {
   return ((trainer*)p)->Dim();
 }
 
-void Trainer::Train(const Vector& sample) {
+void Trainer::Train(const VectorXd& sample) {
   ((trainer*)p)->Train(sample);
 }
 
 void Trainer::Train(const std::vector<double>& sample) {
-  Map<const Vector> s(sample.data(), sample.size());
+  Map<const VectorXd> s(sample.data(), sample.size());
   ((trainer*)p)->Train(s);
 }
 
-void Trainer::Merge(const Trainer& t, double w) {
-  ((trainer*)p)->Merge(*(const trainer*)*(void**)&t, w);
+bool Trainer::Merge(const Trainer& t, double w) {
+  return ((trainer*)p)->Merge(*(const trainer*)*(void**)&t, w);
 }
 
 std::string Trainer::Spit() {
@@ -99,6 +99,10 @@ bool Trainer::Swallow(const std::string& t, double w) {
 
 double Trainer::Update(double noise_floor) {
   return ((trainer*)p)->Update(noise_floor);
+}
+
+void Trainer::Reset() {
+  return ((trainer*)p)->Reset();
 }
 
 }  // namespace aha

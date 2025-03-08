@@ -14,6 +14,7 @@
 
 namespace py = pybind11;
 using namespace aha;
+using namespace Eigen;
 
 PYBIND11_MODULE(aha, m) {
   m.attr("__version__") = VERSION;
@@ -37,10 +38,10 @@ PYBIND11_MODULE(aha, m) {
       py::arg("x"))
     .def(
       "BatchPredict",
-      [](const Model& self, const Matrix& x) {
-        Vector r = Vector::Zero(x.rows());
-        Matrix y = Matrix::Zero(x.rows(), self.Dim() - x.cols());
-        Vector temp;
+      [](const Model& self, const MatrixXd& x) {
+        VectorXd r = VectorXd::Zero(x.rows());
+        MatrixXd y = MatrixXd::Zero(x.rows(), self.Dim() - x.cols());
+        VectorXd temp;
         for (int i = 0; i < (int)x.rows(); i++) {
           r[i] = self.Predict(x.row(i), temp);
           y.row(i) = temp;
@@ -65,7 +66,7 @@ PYBIND11_MODULE(aha, m) {
       py::arg("sample"))
     .def(
       "BatchTrain",
-      [](Trainer& self, const Matrix& samples) {
+      [](Trainer& self, const MatrixXd& samples) {
         for (auto row : samples.rowwise()) {
           self.Train(row);
         }
@@ -74,5 +75,6 @@ PYBIND11_MODULE(aha, m) {
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
-    .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0);
+    .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0)
+    .def("Reset", &Trainer::Reset);
 }

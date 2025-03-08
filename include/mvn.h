@@ -4,12 +4,12 @@
 #ifndef AHA_MVN_H
 #define AHA_MVN_H
 
-#include <Eigen/Dense>
 #include <cassert>
 #include <cfloat>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
+#include <Eigen/Dense>
 
 #include "generator.h"
 
@@ -17,13 +17,9 @@
 #define M_PI 3.14159265358979323846264338327950288
 #endif
 
+namespace aha {
+
 using namespace Eigen;
-#ifndef Vector
-#define Vector VectorXd
-#endif
-#ifndef Matrix
-#define Matrix MatrixXd
-#endif
 
 using json = nlohmann::ordered_json;
 
@@ -37,7 +33,7 @@ class mvn {
   }
 
   // 构造函数
-  mvn(const Vector& mu, const Matrix& sigma) {
+  mvn(const VectorXd& mu, const MatrixXd& sigma) {
     Initialize(mu, sigma);
   }
 
@@ -47,14 +43,14 @@ class mvn {
   }
 
   // 初始化，Cholesky分解
-  void Initialize(const Vector& mu, const Matrix& sigma) {
+  void Initialize(const VectorXd& mu, const MatrixXd& sigma) {
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
-    auto llt = LLT<Matrix>(sigma.selfadjointView<Lower>());
+    auto llt = LLT<MatrixXd>(sigma.selfadjointView<Lower>());
     assert(llt.info() == Success);
     u = mu;
     l = llt.matrixL();
-    d = Vector(mu.size());
+    d = VectorXd(mu.size());
     double c = 0;
     for (int i = 0; i < (int)mu.size(); i++) {
       c += 2 * log(l(i, i));
@@ -63,7 +59,7 @@ class mvn {
   }
 
   // 计算对数概率密度
-  double Evaluate(const Vector& x) const {
+  double Evaluate(const VectorXd& x) const {
     assert(x.size() == u.size());
     auto n = u.size();
     return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
@@ -71,7 +67,7 @@ class mvn {
   }
 
   // 计算对数边缘概率密度
-  double PartialEvaluate(const Vector& x) const {
+  double PartialEvaluate(const VectorXd& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
     return -0.5 * (l.topLeftCorner(k, k)
@@ -82,29 +78,29 @@ class mvn {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const Vector& x, Vector& y) const {
+  double Predict(const VectorXd& x, VectorXd& y) const {
     assert(x.size() <= u.size());
     auto n = u.size();
     auto k = x.size();
-    Vector temp =
+    VectorXd temp =
       l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
     return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
   }
 
  public:
-  const Vector& getu() const {
+  const VectorXd& getu() const {
     return u;
   }
 
-  const Matrix& getl() const {
+  const MatrixXd& getl() const {
     return l;
   }
 
  protected:
-  Vector u;
-  Matrix l;
-  Vector d;
+  VectorXd u;
+  MatrixXd l;
+  VectorXd d;
 };
 
 /*
@@ -143,8 +139,8 @@ class mix {
 
   // 初始化
   void Initialize(const std::vector<double>& weights,
-                  const std::vector<Vector>& means,
-                  const std::vector<Matrix>& covs) {
+                  const std::vector<VectorXd>& means,
+                  const std::vector<MatrixXd>& covs) {
     rank = (int)weights.size();
     dim = means.size() > 0 ? (int)means[0].size() : 0;
     this->weights = weights;
@@ -155,7 +151,7 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double Evaluate(const Vector& x, std::vector<double>& w) const {
+  double Evaluate(const VectorXd& x, std::vector<double>& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
     double wmax = -DBL_MAX;
@@ -177,10 +173,10 @@ class mix {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const Vector& x, Vector& y) const {
+  double Predict(const VectorXd& x, VectorXd& y) const {
     assert((int)x.size() <= dim);
     double wmax = -DBL_MAX;
-    std::vector<Vector> v(rank);
+    std::vector<VectorXd> v(rank);
     std::vector<double> w(rank);
     for (int i = 0; i < rank; i++) {
       w[i] = cores[i].Predict(x, v[i]);
@@ -193,7 +189,7 @@ class mix {
       w[i] = weights[i] * exp(w[i] - wmax);
       sum += w[i];
     }
-    y = Vector::Zero(dim - x.size());
+    y = VectorXd::Zero(dim - x.size());
     for (int i = 0; i < rank; i++) {
       y += (w[i] / sum) * v[i];
     }
@@ -213,7 +209,7 @@ class mix {
     for (int i = 0; i < rank; i++) {
       auto& u = cores[i].getu();
       auto& l = cores[i].getl();
-      Matrix s = l * l.transpose();
+      MatrixXd s = l * l.transpose();
       std::vector<double> mu(u.data(), u.data() + u.size());
       std::vector<double> sigma(s.data(), s.data() + s.size());
       j["c"].push_back({{"u", mu}, {"s", sigma}});
@@ -241,8 +237,8 @@ class mix {
         if ((int)mu.size() != d || (int)sigma.size() != d * d) {
           return false;
         }
-        auto u = Map<Vector>(mu.data(), d);
-        auto s = Map<Matrix>(sigma.data(), d, d);
+        auto u = Map<VectorXd>(mu.data(), d);
+        auto s = Map<MatrixXd>(sigma.data(), d, d);
         c[i].Initialize(u, s);
       }
       rank = r;
@@ -299,21 +295,20 @@ class trainer {
       means(m.Rank()),
       covs(m.Rank()),
       temp(m.Rank()) {
-    Reset();
   }
 
   // 添加一个样本
-  void Train(const Vector& sample) {
+  void Train(const VectorXd& sample) {
     if (m.Initialized()) {
       entropy -= m.Evaluate(sample, temp);
-      Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
+      MatrixXd quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
         weights[i] += temp[i];
         means[i] += sample * temp[i];
         covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
       }
     } else {
-      Matrix quadric = (sample * sample.transpose()).selfadjointView<Lower>();
+      MatrixXd quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
         weights[i] += 1.0;
         means[i] += sample;
@@ -383,12 +378,12 @@ class trainer {
         if ((int)m.size() != dim) {
           return false;
         }
-        means[i] += Map<Vector>(m.data(), dim) * w;
+        means[i] += Map<VectorXd>(m.data(), dim) * w;
         std::vector<double> c = j["c"][i];
         if ((int)c.size() != dim * dim) {
           return false;
         }
-        covs[i] += Map<Matrix>(c.data(), dim, dim) * w;
+        covs[i] += Map<MatrixXd>(c.data(), dim, dim) * w;
       }
       return true;
     } catch (...) {
@@ -407,7 +402,7 @@ class trainer {
       means[i] /= weights[i];
       covs[i] = (covs[i] / weights[i] - means[i] * means[i].transpose())
                   .selfadjointView<Lower>();
-      covs[i] += Matrix::Identity(dim, dim) * noise_floor * noise_floor;
+      covs[i] += MatrixXd::Identity(dim, dim) * noise_floor * noise_floor;
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {
@@ -419,9 +414,7 @@ class trainer {
       entropy = std::numeric_limits<double>::infinity();
     }
     m.Initialize(weights, means, covs);
-    auto ret = entropy;
-    Reset();
-    return ret;
+    return entropy;
   }
 
   // 获取阶数
@@ -443,14 +436,13 @@ class trainer {
     }
   }
 
- protected:
   // 清空记忆
   void Reset() {
     entropy = 0;
     for (int i = 0; i < rank; i++) {
       weights[i] = 0;
-      means[i] = Vector::Zero(dim);
-      covs[i] = Matrix::Zero(dim, dim);
+      means[i] = VectorXd::Zero(dim);
+      covs[i] = MatrixXd::Zero(dim, dim);
       temp[i] = 0;
     }
   }
@@ -461,9 +453,11 @@ class trainer {
   int dim;
   double entropy;
   std::vector<double> weights;
-  std::vector<Vector> means;
-  std::vector<Matrix> covs;
+  std::vector<VectorXd> means;
+  std::vector<MatrixXd> covs;
   std::vector<double> temp;
 };
+
+}  // namespace aha
 
 #endif
