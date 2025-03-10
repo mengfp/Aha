@@ -9,6 +9,9 @@
 #include <generator.h>
 #include <mvn.h>
 
+#define USING_TIMER
+#include <timer.h>
+
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -324,6 +327,9 @@ inline bool eq(const MatrixXd& a, const MatrixXd& b) {
 
 // Functional Verification Test
 bool FVTest() {
+  Timer timer("FVTTest");
+  TimerGuard guard(timer);
+
   const int RANK = 3;
   const int DIM = 3;
   const int N = 100000;

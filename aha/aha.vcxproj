@@ -96,6 +96,7 @@
     <ClInclude Include="..\include\aha.h" />
     <ClInclude Include="..\include\generator.h" />
     <ClInclude Include="..\include\mvn.h" />
+    <ClInclude Include="..\include\timer.h" />
     <ClInclude Include="..\include\version.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
