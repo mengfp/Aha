@@ -325,68 +325,6 @@ inline bool eq(const MatrixXd& a, const MatrixXd& b) {
   return true;
 }
 
-bool TestBatchPredict() {
-   
-  const int RANK = 8;
-  const int DIM = 256;
-  const int N = 10000;
-
-  std::vector<double> weights(RANK);
-  std::vector<VectorXd> means(RANK);
-  std::vector<MatrixXd> covs(RANK);
-  std::vector<MVNGenerator> generators(RANK);
-
-  for (int i = 0; i < RANK; i++) {
-    weights[i] = 1.0 / RANK;
-    means[i] = VectorXd::Ones(DIM) * i * 10;
-    covs[i] = MatrixXd::Identity(DIM, DIM);
-    generators[i].Init(means[i], covs[i]);
-  }
-
-  Model m(RANK, DIM);
-  mix* p = *(mix**)&m;
-  p->Initialize(weights, means, covs);
-
-  MatrixXd data(DIM, N);
-  for (int i = 0; i < N; i++) {
-    data.col(i) = generators[i % RANK].Gen();
-  }
-
-  // Step-by-step prediction
-  VectorXd r(N);
-  MatrixXd Y(16, N);
-  Timer t_single("SinglePredict");
-  t_single.start();
-  for (int i = 0; i < N; i++) {
-    VectorXd y;
-    r[i] = m.Predict(data.col(i).head(240), y);
-    Y.col(i) = y;
-  }
-  t_single.stop();
-
-  // Batch predict
-  VectorXd _r;
-  MatrixXd _Y;
-  Timer t_batch("BatchPredict");
-  t_batch.start();
-  _r = m.BatchPredict(data.topRows(240), _Y);
-  t_batch.stop();
-
-  // Fast prediction
-  VectorXd __r;
-  MatrixXd __Y;
-  Timer t_fast("FastPredict");
-  t_fast.start();
-  _r = m.BatchPredict(data.topRows(240), _Y);
-  t_fast.stop();
-
-  if ((r - _r).norm() > 1.0e-6 || (Y - _Y).norm() > 1.0e-6 ||
-      (r - __r).norm() > 1.0e-6 || (Y - __Y).norm() > 1.0e-6)
-    return false;
-  else
-    return true;
-}
-
 // Functional Verification Test
 bool FVTest() {
   Timer timer("FVTTest");
@@ -507,6 +445,142 @@ bool FVTest() {
   return true;
 }
 
+bool TestBatchPredict() {
+  const int RANK = 8;
+  const int DIM = 256;
+  const int N = 10000;
+
+  std::vector<double> weights(RANK);
+  std::vector<VectorXd> means(RANK);
+  std::vector<MatrixXd> covs(RANK);
+  std::vector<MVNGenerator> generators(RANK);
+
+  for (int i = 0; i < RANK; i++) {
+    weights[i] = 1.0 / RANK;
+    means[i] = VectorXd::Ones(DIM) * i * 10;
+    covs[i] = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means[i], covs[i]);
+  }
+
+  Model m(RANK, DIM);
+  mix* p = *(mix**)&m;
+  p->Initialize(weights, means, covs);
+
+  MatrixXd data(DIM, N);
+  for (int i = 0; i < N; i++) {
+    data.col(i) = generators[i % RANK].Gen();
+  }
+
+  // Single prediction
+  VectorXd r(N);
+  MatrixXd Y(16, N);
+  Timer t_single("SinglePredict");
+  t_single.start();
+  for (int i = 0; i < N; i++) {
+    VectorXd y;
+    r[i] = m.Predict(data.col(i).head(240), y);
+    Y.col(i) = y;
+  }
+  t_single.stop();
+
+  // Batch predict
+  VectorXd _r;
+  MatrixXd _Y;
+  Timer t_batch("BatchPredict");
+  t_batch.start();
+  _r = m.BatchPredict(data.topRows(240), _Y);
+  t_batch.stop();
+
+  // Fast prediction
+  VectorXd __r;
+  MatrixXd __Y;
+  Timer t_fast("FastPredict");
+  t_fast.start();
+  _r = m.BatchPredict(data.topRows(240), _Y);
+  t_fast.stop();
+
+  if ((r - _r).norm() > 1.0e-6 || (Y - _Y).norm() > 1.0e-6 ||
+      (r - __r).norm() > 1.0e-6 || (Y - __Y).norm() > 1.0e-6)
+    return false;
+  else
+    return true;
+}
+
+double compare(const Model& m1, const Model& m2) {
+  assert(m1.Rank() == m2.Rank());
+  assert(m1.Dim() == m2.Dim());
+  double e = 0.0;
+  mix* p1 = *(mix**)&m1;
+  mix* p2 = *(mix**)&m2;
+  for (int i = 0; i < m1.Rank(); i++) {
+    e += pow(p1->GetWeights()[i] - p2->GetWeights()[i], 2);
+    e += (p1->GetCores()[i].getu() - p2->GetCores()[i].getu()).squaredNorm();
+    e += (p1->GetCores()[i].getl() - p2->GetCores()[i].getl()).squaredNorm();
+  }
+  return sqrt(e);
+}
+
+bool TestBatchTrain() {
+  const int RANK = 8;
+  const int DIM = 256;
+  const int N = 10000;
+
+  std::vector<double> weights(RANK);
+  std::vector<VectorXd> means(RANK);
+  std::vector<MatrixXd> covs(RANK);
+  std::vector<MVNGenerator> generators(RANK);
+
+  for (int i = 0; i < RANK; i++) {
+    weights[i] = 1.0 / RANK;
+    means[i] = VectorXd::Ones(DIM) * i * 10;
+    covs[i] = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means[i], covs[i]);
+  }
+
+  Model m1(RANK, DIM);
+  mix* p1 = *(mix**)&m1;
+  p1->Initialize(weights, means, covs);
+
+  Model m2(RANK, DIM);
+  mix* p2 = *(mix**)&m2;
+  p2->Initialize(weights, means, covs);
+
+  MatrixXd data(DIM, N);
+  for (int i = 0; i < N; i++) {
+    data.col(i) = generators[i % RANK].Gen();
+  }
+
+  // Single train
+  Trainer t1(m1);
+  Timer t_single("SingleTrain");
+  t_single.start();
+  t1.Reset();
+  for (int i = 0; i < N; i++) {
+    t1.Train(data.col(i));
+  }
+  t1.Update();
+  t_single.stop();
+
+  double e1 = compare(m1, m2);
+
+  // Batch predict
+  Trainer t2(m2);
+  Timer t_batch("BatchTrain");
+  t_batch.start();
+  t2.Reset();
+  t2.BatchTrain(data);
+  t2.Update();
+  t_batch.stop();
+
+  double e2 = compare(m1, m2);
+
+  std::cout << e1 << " " << e2 << std::endl;
+  if (e2 > 1.0e-6)
+    return false;
+  else
+    return true;
+}
+
 int main() {
   // TestGaussian();
   // TestRand();
@@ -527,6 +601,12 @@ int main() {
     std::cout << "### TestBatchPredict OK ###" << std::endl;
   } else {
     std::cout << "*** TestBatchPredict Failed ***" << std::endl;
+  }
+
+  if (TestBatchTrain()) {
+    std::cout << "### TestBatchTrain OK ###" << std::endl;
+  } else {
+    std::cout << "*** TestBatchTrain Failed ***" << std::endl;
   }
 
   return 0;

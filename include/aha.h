@@ -46,6 +46,7 @@ class Trainer {
   bool Swallow(const std::string& t, double w = 1.0);
   double Update(double noise_floor = 0.0);
   void Reset();
+  void BatchTrain(const MatrixXd& samples);
 
  private:
   void* p;

@@ -113,4 +113,8 @@ void Trainer::Reset() {
   return ((trainer*)p)->Reset();
 }
 
+void Trainer::BatchTrain(const MatrixXd& samples) {
+  ((trainer*)p)->BatchTrain(samples);
+}
+
 }  // namespace aha
