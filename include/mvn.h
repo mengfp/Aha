@@ -178,28 +178,6 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double _Evaluate(const VectorXd& x, std::vector<double>& w) const {
-    assert((int)x.size() == dim);
-    assert((int)w.size() == rank);
-    double wmax = -DBL_MAX;
-    for (int i = 0; i < rank; i++) {
-      w[i] = cores[i].Evaluate(x);
-      if (w[i] > wmax) {
-        wmax = w[i];
-      }
-    }
-    double sum = 0;
-    for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
-      sum += w[i];
-    }
-    for (int i = 0; i < rank; i++) {
-      w[i] /= sum;
-    }
-    return log(sum) + wmax;
-  }
-
-  // 计算对数概率密度和分类权重
   double Evaluate(const VectorXd& x, std::vector<double>& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
@@ -212,30 +190,6 @@ class mix {
       w[i] /= sum;
     }
     return log(sum);
-  }
-
-  // 计算对数边缘概率密度和条件期望
-  double _Predict(const VectorXd& x, VectorXd& y) const {
-    assert((int)x.size() <= dim);
-    double wmax = -DBL_MAX;
-    std::vector<VectorXd> v(rank);
-    std::vector<double> w(rank);
-    for (int i = 0; i < rank; i++) {
-      w[i] = cores[i].Predict(x, v[i]);
-      if (w[i] > wmax) {
-        wmax = w[i];
-      }
-    }
-    double sum = 0;
-    for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
-      sum += w[i];
-    }
-    y = VectorXd::Zero(dim - x.size());
-    for (int i = 0; i < rank; i++) {
-      y += (w[i] / sum) * v[i];
-    }
-    return log(sum) + wmax;
   }
 
   // 计算对数边缘概率密度和条件期望
