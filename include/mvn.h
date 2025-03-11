@@ -49,7 +49,9 @@ class mvn {
     auto llt = LLT<MatrixXd>(sigma.selfadjointView<Lower>());
     assert(llt.info() == Success);
     u = mu;
+    _u = u.cast<float>();
     l = llt.matrixL();
+    _l = l.cast<float>();
     d = VectorXd(mu.size());
     double c = 0;
     for (int i = 0; i < (int)mu.size(); i++) {
@@ -105,11 +107,9 @@ class mvn {
     assert(X.rows() <= u.size());
     auto n = u.size();
     auto k = X.rows();
-    MatrixXf temp =
-      l.cast<float>().topLeftCorner(k, k).triangularView<Lower>().solve(
-        X.cast<float>().colwise() - u.cast<float>().head(k));
-    Y = ((l.cast<float>().bottomLeftCorner(n - k, k) * temp).colwise() +
-         u.cast<float>().tail(n - k))
+    MatrixXf temp = _l.topLeftCorner(k, k).triangularView<Lower>().solve(
+      X.cast<float>().colwise() - _u.head(k));
+    Y = ((_l.bottomLeftCorner(n - k, k) * temp).colwise() + _u.tail(n - k))
           .cast<double>();
     return -0.5 * (temp.cast<double>().colwise().squaredNorm().array() +
                    k * log(2 * M_PI) + d(k - 1));
@@ -126,7 +126,9 @@ class mvn {
 
  protected:
   VectorXd u;
+  VectorXf _u;
   MatrixXd l;
+  MatrixXf _l;
   VectorXd d;
 };
 
