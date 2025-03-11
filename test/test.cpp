@@ -325,6 +325,68 @@ inline bool eq(const MatrixXd& a, const MatrixXd& b) {
   return true;
 }
 
+bool TestBatchPredict() {
+   
+  const int RANK = 8;
+  const int DIM = 256;
+  const int N = 10000;
+
+  std::vector<double> weights(RANK);
+  std::vector<VectorXd> means(RANK);
+  std::vector<MatrixXd> covs(RANK);
+  std::vector<MVNGenerator> generators(RANK);
+
+  for (int i = 0; i < RANK; i++) {
+    weights[i] = 1.0 / RANK;
+    means[i] = VectorXd::Ones(DIM) * i * 10;
+    covs[i] = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means[i], covs[i]);
+  }
+
+  Model m(RANK, DIM);
+  mix* p = *(mix**)&m;
+  p->Initialize(weights, means, covs);
+
+  MatrixXd data(DIM, N);
+  for (int i = 0; i < N; i++) {
+    data.col(i) = generators[i % RANK].Gen();
+  }
+
+  // Step-by-step prediction
+  VectorXd r(N);
+  MatrixXd Y(16, N);
+  Timer t_single("SinglePredict");
+  t_single.start();
+  for (int i = 0; i < N; i++) {
+    VectorXd y;
+    r[i] = m.Predict(data.col(i).head(240), y);
+    Y.col(i) = y;
+  }
+  t_single.stop();
+
+  // Batch predict
+  VectorXd _r;
+  MatrixXd _Y;
+  Timer t_batch("BatchPredict");
+  t_batch.start();
+  _r = m.BatchPredict(data.topRows(240), _Y);
+  t_batch.stop();
+
+  // Fast prediction
+  VectorXd __r;
+  MatrixXd __Y;
+  Timer t_fast("FastPredict");
+  t_fast.start();
+  _r = m.BatchPredict(data.topRows(240), _Y);
+  t_fast.stop();
+
+  if ((r - _r).norm() > 1.0e-6 || (Y - _Y).norm() > 1.0e-6 ||
+      (r - __r).norm() > 1.0e-6 || (Y - __Y).norm() > 1.0e-6)
+    return false;
+  else
+    return true;
+}
+
 // Functional Verification Test
 bool FVTest() {
   Timer timer("FVTTest");
@@ -343,7 +405,7 @@ bool FVTest() {
   }
 
   Model m(RANK, DIM);
-  mix *p = *(mix**)&m;
+  mix* p = *(mix**)&m;
   Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
@@ -456,9 +518,15 @@ int main() {
   // TestSpitSwallow();
 
   if (FVTest()) {
-    std::cout << "### OK ###" << std::endl;
+    std::cout << "### FVTest OK ###" << std::endl;
   } else {
-    std::cout << "*** Failed ***" << std::endl;
+    std::cout << "*** FVTest Failed ***" << std::endl;
+  }
+
+  if (TestBatchPredict()) {
+    std::cout << "### TestBatchPredict OK ###" << std::endl;
+  } else {
+    std::cout << "*** TestBatchPredict Failed ***" << std::endl;
   }
 
   return 0;

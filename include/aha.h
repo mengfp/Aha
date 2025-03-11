@@ -26,6 +26,8 @@ class Model {
   void Sort();
   std::string Export() const;
   bool Import(const std::string& model);
+  VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const;
+  VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const;
 
  private:
   void* p;

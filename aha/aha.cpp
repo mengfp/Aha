@@ -60,6 +60,14 @@ bool Model::Import(const std::string& model) {
   return ((mix*)p)->Import(model);
 }
 
+VectorXd Model::BatchPredict(const MatrixXd& X, MatrixXd& Y) const {
+  return ((mix*)p)->BatchPredict(X, Y);
+}
+
+VectorXd Model::FastPredict(const MatrixXd& X, MatrixXd& Y) const {
+  return ((mix*)p)->FastPredict(X, Y);
+}
+
 Trainer::Trainer(Model& m) {
   p = new trainer(*(mix*)*(void**)&m);
 }

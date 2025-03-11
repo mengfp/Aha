@@ -88,6 +88,33 @@ class mvn {
     return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
   }
 
+  // 批量计算对数边缘概率密度和条件期望
+  VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const {
+    assert(X.rows() <= u.size());
+    auto n = u.size();
+    auto k = X.rows();
+    MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
+      X.colwise() - u.head(k));
+    Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
+    return -0.5 * (temp.colwise().squaredNorm().array() + k * log(2 * M_PI) +
+                   d(k - 1));
+  }
+
+  // 快速计算对数边缘概率密度和条件期望
+  VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const {
+    assert(X.rows() <= u.size());
+    auto n = u.size();
+    auto k = X.rows();
+    MatrixXf temp =
+      l.cast<float>().topLeftCorner(k, k).triangularView<Lower>().solve(
+        X.cast<float>().colwise() - u.cast<float>().head(k));
+    Y = ((l.cast<float>().bottomLeftCorner(n - k, k) * temp).colwise() +
+         u.cast<float>().tail(n - k))
+          .cast<double>();
+    return -0.5 * (temp.cast<double>().colwise().squaredNorm().array() +
+                   k * log(2 * M_PI) + d(k - 1));
+  }
+
  public:
   const VectorXd& getu() const {
     return u;
@@ -151,7 +178,7 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double Evaluate(const VectorXd& x, std::vector<double>& w) const {
+  double _Evaluate(const VectorXd& x, std::vector<double>& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
     double wmax = -DBL_MAX;
@@ -172,8 +199,23 @@ class mix {
     return log(sum) + wmax;
   }
 
+  // 计算对数概率密度和分类权重
+  double Evaluate(const VectorXd& x, std::vector<double>& w) const {
+    assert((int)x.size() == dim);
+    assert((int)w.size() == rank);
+    double sum = 0;
+    for (int i = 0; i < rank; i++) {
+      w[i] = weights[i] * exp(cores[i].Evaluate(x));
+      sum += w[i];
+    }
+    for (int i = 0; i < rank; i++) {
+      w[i] /= sum;
+    }
+    return log(sum);
+  }
+
   // 计算对数边缘概率密度和条件期望
-  double Predict(const VectorXd& x, VectorXd& y) const {
+  double _Predict(const VectorXd& x, VectorXd& y) const {
     assert((int)x.size() <= dim);
     double wmax = -DBL_MAX;
     std::vector<VectorXd> v(rank);
@@ -194,6 +236,57 @@ class mix {
       y += (w[i] / sum) * v[i];
     }
     return log(sum) + wmax;
+  }
+
+  // 计算对数边缘概率密度和条件期望
+  double Predict(const VectorXd& x, VectorXd& y) const {
+    assert((int)x.size() <= dim);
+    std::vector<VectorXd> v(rank);
+    std::vector<double> w(rank);
+    double sum = 0;
+    for (int i = 0; i < rank; i++) {
+      w[i] = weights[i] * exp(cores[i].Predict(x, v[i]));
+      sum += w[i];
+    }
+    y = VectorXd::Zero(dim - x.size());
+    for (int i = 0; i < rank; i++) {
+      y += (w[i] / sum) * v[i];
+    }
+    return log(sum);
+  }
+
+  // 批量计算对数边缘概率密度和条件期望
+  VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const {
+    assert((int)X.rows() <= dim);
+    std::vector<MatrixXd> V(rank);
+    MatrixXd W(X.cols(), rank);
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * cores[i].BatchPredict(X, V[i]).array().exp();
+    }
+    VectorXd sum = W.rowwise().sum();
+    W = W.array().colwise() / sum.array();
+    Y = MatrixXd::Zero(dim - X.rows(), X.cols());
+    for (int i = 0; i < rank; i++) {
+      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+    }
+    return sum.array().log();
+  }
+
+  // 快速计算对数边缘概率密度和条件期望
+  VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const {
+    assert((int)X.rows() <= dim);
+    std::vector<MatrixXd> V(rank);
+    MatrixXd W(X.cols(), rank);
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * cores[i].FastPredict(X, V[i]).array().exp();
+    }
+    VectorXd sum = W.rowwise().sum();
+    W = W.array().colwise() / sum.array();
+    Y = MatrixXd::Zero(dim - X.rows(), X.cols());
+    for (int i = 0; i < rank; i++) {
+      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+    }
+    return sum.array().log();
   }
 
   // 导出Json字符串
