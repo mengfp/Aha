@@ -9,6 +9,9 @@
 #include <generator.h>
 #include <mvn.h>
 
+#define USING_TIMER
+#include <timer.h>
+
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -18,43 +21,23 @@ using namespace std::chrono;
 using namespace aha;
 using namespace Eigen;
 
-#if 0
-#define real double
-#define Model Model64
-#define Trainer Trainer64
-#define mvn mvn64
-#define mix mix64
-#define trainer trainer64
-#else
-#define real float
-#define Model Model32
-#define Trainer Trainer32
-#define mvn mvn32
-#define mix mix32
-#define trainer trainer32
-#endif
-
-using V = Matrix<real, -1, 1>;
-using M = Matrix<real, -1, -1>;
-
 bool TestGaussian() {
-  V mu(4);
+  VectorXd mu(4);
   mu << 1, 2, 3, 4;
-  M sigma(4, 4);
-  sigma << 100.0f, 32.4796258609215869f, 31.6838227860951349f,
-    141.409621752763684f, 32.4796258609215869f, 110.549260960654465f,
-    -152.033658539600196f, 237.757814080695653f, 31.6838227860951349f,
-    -152.033658539600196f, 373.530902783367878f, -140.279703673223594f,
-    141.409621752763684f, 237.757814080695653f, -140.279703673223594f,
-    827.467631118572399f;
-  V x(4);
-  x << -52.8138247836419055f, 167.036008837659296f, -254.908653564947315f,
-    437.285521520668226f;
+  MatrixXd sigma(4, 4);
+  sigma << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    237.757814080695653, 31.6838227860951349, -152.033658539600196,
+    373.530902783367878, -140.279703673223594, 141.409621752763684,
+    237.757814080695653, -140.279703673223594, 827.467631118572399;
+  VectorXd x(4);
+  x << -52.8138247836419055, 167.036008837659296, -254.908653564947315,
+    437.285521520668226;
   x += mu;
   mvn g(mu, sigma);
   auto e = 1.0e-12;
 
-  auto error = g.Evaluate(x) - (-248.438063922770f);
+  auto error = g.Evaluate(x) - (-248.438063922770);
   if (error < -e || error > e) {
     std::cout << "*** TestGaussian failed" << std::endl;
     return false;
@@ -66,7 +49,7 @@ bool TestGaussian() {
     return false;
   }
 
-  V y;
+  VectorXd y;
   error = g.Predict(x.head(2), y) - (-190.01885211864618);
   if (error < -e || error > e) {
     std::cout << "*** TestGaussian failed" << std::endl;
@@ -117,7 +100,7 @@ bool TestTrain() {
   mix m(rank, dim);
   trainer train(m);
   Generator gen;
-  V sample = V::Zero(dim);
+  VectorXd sample = VectorXd::Zero(dim);
 
   for (int k = 0; k < 20; k++) {
     gen.Initialize(rank, dim, seed);
@@ -147,12 +130,12 @@ bool TestAha() {
   Gen2 gen;
   gen.Init(seed);
 
-  std::cout << "Version: " << aha::Version() << std::endl;
+  std::cout << "Version: " << Version() << std::endl;
   Model model(5, 3);
   Trainer trainer(model);
 
   for (int k = 0; k < 30; k++) {
-    std::vector<real> sample(3);
+    std::vector<double> sample(3);
     trainer.Reset();
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
@@ -165,11 +148,11 @@ bool TestAha() {
   // Test predict
   std::cout << "Test prediction ..." << std::endl;
   for (int k = 0; k < 10; k++) {
-    std::vector<real> sample(3);
+    std::vector<double> sample(3);
     gen.gen(sample);
     std::cout << "sample: " << sample[0] << " " << sample[1] << " " << sample[2]
               << std::endl;
-    std::vector<real> y;
+    std::vector<double> y;
     sample.resize(2);
     model.Predict(sample, y);
     std::cout << "prediction: " << y[0] << std::endl;
@@ -182,10 +165,10 @@ bool TestAha() {
 
 bool TestNonLinear() {
   int N = 1000000;
-  GenNonLinear<real> gen;
+  GenNonLinear gen;
 
-  std::vector<std::vector<real>> samples;
-  std::vector<real> sample(3);
+  std::vector<std::vector<double>> samples;
+  std::vector<double> sample(3);
   for (int i = 0; i < N; i++) {
     gen.gen(sample);
     samples.push_back(sample);
@@ -211,8 +194,8 @@ bool TestNonLinear() {
   now = steady_clock::now();
   double d = 0.0;
   for (auto& s : samples) {
-    std::vector<real> x(&s[0], &s[2]);
-    std::vector<real> y;
+    std::vector<double> x(&s[0], &s[2]);
+    std::vector<double> y;
     model.Predict(x, y);
     d += pow(y[0] - s[2], 2);
   }
@@ -226,16 +209,15 @@ bool TestNonLinear() {
 
 bool TestMVNGenerator() {
   int N = 1000000;
-  V mean(4);
+  VectorXd mean(4);
   mean << 1, 2, 3, 4;
-  M cov(4, 4);
-  cov << 100.0f, 32.4796258609215869f, 31.6838227860951349f,
-    141.409621752763684f, 32.4796258609215869f, 110.549260960654465f,
-    -152.033658539600196f, 237.757814080695653f, 31.6838227860951349f,
-    -152.033658539600196f, 373.530902783367878f, -140.279703673223594f,
-    141.409621752763684f, 237.757814080695653f, -140.279703673223594f,
-    827.467631118572399f;
-  MVNGenerator gen(mean.cast<double>(), cov.cast<double>(), 1);
+  MatrixXd cov(4, 4);
+  cov << 100, 32.4796258609215869, 31.6838227860951349, 141.409621752763684,
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    237.757814080695653, 31.6838227860951349, -152.033658539600196,
+    373.530902783367878, -140.279703673223594, 141.409621752763684,
+    237.757814080695653, -140.279703673223594, 827.467631118572399;
+  MVNGenerator gen(mean, cov, 1);
 
   mix m(1, 4);
   trainer t(m);
@@ -243,7 +225,7 @@ bool TestMVNGenerator() {
   for (int k = 0; k < 10; k++) {
     t.Reset();
     for (int i = 0; i < N; i++) {
-      auto sample = gen.Gen().cast<real>();
+      auto sample = gen.Gen();
       t.Train(sample);
       t.Train(sample);
     }
@@ -256,22 +238,22 @@ bool TestMVNGenerator() {
 
 bool TestImportExport() {
   std::vector<double> weights(2);
-  std::vector<V> means(2);
-  std::vector<M> covs(2);
+  std::vector<VectorXd> means(2);
+  std::vector<MatrixXd> covs(2);
 
-  weights[0] = 0.1f;
-  weights[1] = 0.9f;
+  weights[0] = 0.1;
+  weights[1] = 0.9;
 
-  means[0] = V::Zero(3);
+  means[0] = VectorXd::Zero(3);
   means[0] << 1, 2, 3;
-  means[1] = V::Zero(3);
+  means[1] = VectorXd::Zero(3);
   means[1] << 3, 2, 1;
 
-  covs[0] = M::Identity(3, 3);
-  covs[1] = M::Zero(3, 3);
-  covs[1] << 100.0f, 32.4796258609215869f, 31.6838227860951349f,
-    32.4796258609215869f, 110.549260960654465f, -152.033658539600196f,
-    31.6838227860951349f, -152.033658539600196f, 373.530902783367878f;
+  covs[0] = MatrixXd::Identity(3, 3);
+  covs[1] = MatrixXd::Zero(3, 3);
+  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 32.4796258609215869,
+    110.549260960654465, -152.033658539600196, 31.6838227860951349,
+    -152.033658539600196, 373.530902783367878;
 
   mix m;
   m.Initialize(weights, means, covs);
@@ -307,8 +289,7 @@ bool TestSpitSwallow() {
 
 #define EPS 1.0e-2
 
-template <typename T>
-inline bool eq(const std::vector<T>& a, const std::vector<T>& b) {
+inline bool eq(const std::vector<double>& a, const std::vector<double>& b) {
   if (a.size() != b.size()) {
     return false;
   }
@@ -320,7 +301,7 @@ inline bool eq(const std::vector<T>& a, const std::vector<T>& b) {
   return true;
 }
 
-inline bool eq(const V& a, const V& b) {
+inline bool eq(const VectorXd& a, const VectorXd& b) {
   if (a.size() != b.size()) {
     return false;
   }
@@ -332,7 +313,7 @@ inline bool eq(const V& a, const V& b) {
   return true;
 }
 
-inline bool eq(const M& a, const M& b) {
+inline bool eq(const MatrixXd& a, const MatrixXd& b) {
   if (a.size() != b.size()) {
     return false;
   }
@@ -346,6 +327,9 @@ inline bool eq(const M& a, const M& b) {
 
 // Functional Verification Test
 bool FVTest() {
+  Timer timer("FVTTest");
+  TimerGuard guard(timer);
+
   const int RANK = 3;
   const int DIM = 3;
   const int N = 100000;
@@ -353,33 +337,26 @@ bool FVTest() {
 
   std::vector<MVNGenerator> generators(RANK);
   for (int i = 0; i < RANK; i++) {
-    V mean = V::Ones(DIM) * i * 10;
-    M cov = M::Identity(DIM, DIM);
-    generators[i].Init(mean.cast<double>(), cov.cast<double>());
+    VectorXd mean = VectorXd::Ones(DIM) * i * 10;
+    MatrixXd cov = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(mean, cov);
   }
 
   Model m(RANK, DIM);
   mix* p = *(mix**)&m;
-  // 主教练
-  Trainer trainer(m);
-  // 副教练
   Trainer t(m);
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
-    trainer.Reset();
-    for (int i = 0; i < N / 10; i++) {
-      t.Reset();
-      for (int j = 0; j < 10; j++) {
-        t.Train(generators[0].Gen().cast<real>());
-        t.Train(generators[0].Gen().cast<real>());
-        t.Train(generators[0].Gen().cast<real>());
-        t.Train(generators[1].Gen().cast<real>());
-        t.Train(generators[1].Gen().cast<real>());
-        t.Train(generators[2].Gen().cast<real>());
-      }
-      trainer.Merge(t);
+    t.Reset();
+    for (int i = 0; i < N; i++) {
+      t.Train(generators[0].Gen());
+      t.Train(generators[0].Gen());
+      t.Train(generators[0].Gen());
+      t.Train(generators[1].Gen());
+      t.Train(generators[1].Gen());
+      t.Train(generators[2].Gen());
     }
-    auto e = trainer.Update(1.0e-3);
+    auto e = t.Update(1.0e-4);
     std::cout << loop << ": " << e << std::endl;
   }
 
@@ -392,6 +369,7 @@ bool FVTest() {
   if (!m.Import(json)) {
     return false;
   }
+
   p->Sort();
   p->Print();
 
@@ -402,14 +380,14 @@ bool FVTest() {
   if (m.Dim() != DIM) {
     return false;
   }
-  if (!eq(p->GetWeights(), {0.5f, 0.3333f, 0.1667f})) {
+  if (!eq(p->GetWeights(), {0.5, 0.3333, 0.1667})) {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].getu(), generators[i].mean.cast<real>())) {
+    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].getl(), generators[i].L.cast<real>())) {
+    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
       return false;
     }
   }
@@ -420,29 +398,27 @@ bool FVTest() {
   Trainer t2(m);
   for (int loop = 0; loop < LOOP; loop++) {
     t.Reset();
-    for (int i = 0; i < N / 10; i++) {
-      t0.Reset();
-      t1.Reset();
-      t2.Reset();
-      for (int j = 0; j < 10; j++) {
-        t0.Train(generators[0].Gen().cast<real>());
-        t0.Train(generators[0].Gen().cast<real>());
-        t1.Train(generators[0].Gen().cast<real>());
-        t1.Train(generators[1].Gen().cast<real>());
-        t2.Train(generators[1].Gen().cast<real>());
-        t2.Train(generators[2].Gen().cast<real>());
-      }
-#if 0
-      t.Swallow(t0.Spit());
-      t.Swallow(t1.Spit());
-      t.Swallow(t2.Spit());
-#else
-      t.Merge(t0);
-      t.Merge(t1);
-      t.Merge(t2);
-#endif
+    t0.Reset();
+    t1.Reset();
+    t2.Reset();
+    for (int i = 0; i < N; i++) {
+      t0.Train(generators[0].Gen());
+      t0.Train(generators[0].Gen());
+      t1.Train(generators[0].Gen());
+      t1.Train(generators[1].Gen());
+      t2.Train(generators[1].Gen());
+      t2.Train(generators[2].Gen());
     }
-    auto e = t.Update(1.0e-3);
+#if 1
+    t.Swallow(t0.Spit());
+    t.Swallow(t1.Spit());
+    t.Swallow(t2.Spit());
+#else
+    t.Merge(t0);
+    t.Merge(t1);
+    t.Merge(t2);
+#endif
+    auto e = t.Update(1.0e-4);
     std::cout << loop << ": " << e << std::endl;
   }
   p->Print();
@@ -454,19 +430,179 @@ bool FVTest() {
   if (m.Dim() != DIM) {
     return false;
   }
-  if (!eq(p->GetWeights(), {0.5f, 0.3333f, 0.1667f})) {
+  if (!eq(p->GetWeights(), {0.5, 0.3333, 0.1667})) {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].getu(), generators[i].mean.cast<real>())) {
+    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].getl(), generators[i].L.cast<real>())) {
+    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
       return false;
     }
   }
 
   return true;
+}
+
+template <typename T>
+double distance(const T& a, const T& b) {
+  return double((a - b).template lpNorm<Infinity>());
+}
+
+bool TestBatchPredict() {
+  const int RANK = 8;
+  const int DIM = 256;
+  const int N = 10000;
+
+  std::vector<double> weights(RANK);
+  std::vector<VectorXd> means(RANK);
+  std::vector<MatrixXd> covs(RANK);
+  std::vector<MVNGenerator> generators(RANK);
+
+  for (int i = 0; i < RANK; i++) {
+    weights[i] = 1.0 / RANK;
+    means[i] = VectorXd::Ones(DIM) * i * 10;
+    covs[i] = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means[i], covs[i]);
+  }
+
+  Model m(RANK, DIM);
+  mix* p = *(mix**)&m;
+  p->Initialize(weights, means, covs);
+
+  MatrixXd data(DIM, N);
+  for (int i = 0; i < N; i++) {
+    data.col(i) = generators[i % RANK].Gen();
+  }
+
+  // Single predict
+  VectorXd r(N);
+  MatrixXd Y(16, N);
+  Timer t_single("SinglePredict");
+  t_single.start();
+  for (int i = 0; i < N; i++) {
+    VectorXd y;
+    r[i] = m.Predict(data.col(i).head(240), y);
+    Y.col(i) = y;
+  }
+  t_single.stop();
+
+  // Batch predict
+  VectorXd _r;
+  MatrixXd _Y;
+  Timer t_batch("BatchPredict");
+  t_batch.start();
+  _r = m.BatchPredict(data.topRows(240), _Y);
+  t_batch.stop();
+
+  // Fast predict
+  VectorXd __r;
+  MatrixXd __Y;
+  Timer t_fast("FastPredict");
+  t_fast.start();
+  __r = m.FastPredict(data.topRows(240), __Y);
+  t_fast.stop();
+
+  std::cout << distance(r, _r) << ", " << distance(Y, _Y) << std::endl;
+  std::cout << distance(r, __r) << ", " << distance(Y, __Y) << std::endl;
+
+  if (distance(r, _r) > 1.0e-6 || distance(Y, _Y) > 1.0e-6 ||
+      distance(r, __r) > 1.0e-3 || distance(Y, __Y) > 1.0e-6)
+    return false;
+  else
+    return true;
+}
+
+double distance(const Model& m1, const Model& m2) {
+  double e = 0.0;
+  mix* p1 = *(mix**)&m1;
+  mix* p2 = *(mix**)&m2;
+  for (int i = 0; i < m1.Rank(); i++) {
+    //e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
+    e = std::max(e, distance(p1->GetCores()[i].getu(), p2->GetCores()[i].getu()));
+    e = std::max(e, distance(p1->GetCores()[i].getl(), p2->GetCores()[i].getl()));
+  }
+  return e;
+}
+
+bool TestBatchTrain() {
+  const int RANK = 8;
+  const int DIM = 256;
+  const int N = 10000;
+
+  std::vector<double> weights(RANK);
+  std::vector<VectorXd> means(RANK);
+  std::vector<MatrixXd> covs(RANK);
+  std::vector<MVNGenerator> generators(RANK);
+
+  for (int i = 0; i < RANK; i++) {
+    weights[i] = 1.0 / RANK;
+    means[i] = VectorXd::Ones(DIM) * i * 10;
+    covs[i] = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means[i], covs[i]);
+  }
+
+  Model m1(RANK, DIM);
+  mix* p1 = *(mix**)&m1;
+  p1->Initialize(weights, means, covs);
+
+  Model m2(RANK, DIM);
+  mix* p2 = *(mix**)&m2;
+  p2->Initialize(weights, means, covs);
+
+  Model m3(RANK, DIM);
+  mix* p3 = *(mix**)&m3;
+  p3->Initialize(weights, means, covs);
+
+  MatrixXd data(DIM, N);
+  for (int i = 0; i < N; i++) {
+    data.col(i) = generators[i % RANK].Gen();
+  }
+
+  // Single train
+  Trainer t1(m1);
+  Timer t_single("SingleTrain");
+  t_single.start();
+  t1.Reset();
+  for (int i = 0; i < N; i++) {
+    t1.Train(data.col(i));
+  }
+  t1.Update();
+  t_single.stop();
+
+  double e1 = distance(m1, m2);
+
+  // Batch train
+  Trainer t2(m2);
+  Timer t_batch("BatchTrain");
+  t_batch.start();
+  t2.Reset();
+  t2.BatchTrain(data);
+  t2.Update();
+  t_batch.stop();
+
+  double e2 = distance(m1, m2);
+
+  // Fast train
+  Trainer t3(m3);
+  Timer t_fast("FastTrain");
+  t_fast.start();
+  t3.Reset();
+  // 分块计算可提高精度
+  for (int i = 0; i < data.cols(); i += 250) {
+    t3.FastTrain(data.middleCols(i, 250));
+  }
+  t3.Update();
+  t_fast.stop();
+
+  double e3 = distance(m2, m3);
+
+  std::cout << e1 << ", " << e2 << ", " << e3 << std::endl;
+  if (e2 > 1.0e-6 || e3 > 1.0e-3)
+    return false;
+  else
+    return true;
 }
 
 int main() {
@@ -480,9 +616,21 @@ int main() {
   // TestSpitSwallow();
 
   if (FVTest()) {
-    std::cout << "### OK ###" << std::endl;
+    std::cout << "### FVTest OK ###" << std::endl;
   } else {
-    std::cout << "*** Failed ***" << std::endl;
+    std::cout << "*** FVTest Failed ***" << std::endl;
+  }
+
+  if (TestBatchPredict()) {
+    std::cout << "### TestBatchPredict OK ###" << std::endl;
+  } else {
+    std::cout << "*** TestBatchPredict Failed ***" << std::endl;
+  }
+
+  if (TestBatchTrain()) {
+    std::cout << "### TestBatchTrain OK ###" << std::endl;
+  } else {
+    std::cout << "*** TestBatchTrain Failed ***" << std::endl;
   }
 
   return 0;

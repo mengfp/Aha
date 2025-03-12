@@ -43,7 +43,7 @@ class Generator {
       ls[i] = MatrixXd::Identity(dim, dim);
       for (int j = 0; j < dim; j++) {
         auto r = rand.randNorm(0.0, 1.0);
-        ls[i](j, j) *= r * r + 0.5;
+        ls[i](j, j) *= (r * r + 0.5);
         for (int k = j + 1; k < dim; k++) {
           ls[i].row(k) += ls[i].row(j) * rand.randNorm(0.0, 1.0);
         }
@@ -67,12 +67,6 @@ class Generator {
     sample = ls[i] * sample + means[i];
   }
 
-  void Gen(VectorXf& sample) {
-    VectorXd v = VectorXd::Zero(sample.size());
-    Gen(v);
-    sample = v.cast<float>();
-  }
-
   void Print() {
     for (int i = 0; i < (int)weights.size(); i++) {
       std::cout << i << ": " << weights[i] << "\n";
@@ -94,24 +88,23 @@ class Gen2 {
     rand.seed(seed);
   }
 
-  template <typename T>
-  void gen(std::vector<T>& sample) {
+  void gen(std::vector<double>& sample) {
     auto x = rand.randNorm(0.0, 1.0);
     auto y = rand.randNorm(0.0, 1.0);
     auto z = rand.randNorm(0.0, 1.0);
     auto r = rand.randInt() % 4;
     if (r == 0) {
-      sample[0] = T(x * 1000 + 1);
-      sample[1] = T(y + 1);
-      sample[2] = T(x * 1000 + z + 1);
+      sample[0] = x * 1000 + 1;
+      sample[1] = y + 1;
+      sample[2] = x * 1000 + z + 1;
     } else if (r == 1) {
-      sample[0] = T(x - 1);
-      sample[1] = T(y * 1000 - 1);
-      sample[2] = T(-y * 1000 + z - 1);
+      sample[0] = x - 1;
+      sample[1] = y * 1000 - 1;
+      sample[2] = -y * 1000 + z - 1;
     } else {
-      sample[0] = T(x * 1000);
-      sample[1] = T(y * 1000);
-      sample[2] = T(z);
+      sample[0] = x * 1000;
+      sample[1] = y * 1000;
+      sample[2] = z;
     }
   }
 
@@ -119,20 +112,19 @@ class Gen2 {
   MTRand rand;
 };
 
-template <typename T>
 class GenNonLinear {
  public:
   void Init(uint32_t seed) {
     rand.seed(seed);
   }
 
-  void gen(std::vector<T>& sample) {
+  void gen(std::vector<double>& sample) {
     auto a = rand.randNorm(0.0, 1.0);
     auto b = rand.randNorm(0.0, 1.0);
     auto c = rand.randNorm(0.0, 1.0);
-    sample[0] = T(a);
-    sample[1] = T(b);
-    sample[2] = T(a * b + c);
+    sample[0] = a;
+    sample[1] = b;
+    sample[2] = a * b + c;
   }
 
  protected:
