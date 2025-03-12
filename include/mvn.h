@@ -560,10 +560,10 @@ class trainer {
     }
     entropy /= s;
     for (int i = 0; i < rank; i++) {
-      means[i] /= weights[i];
-      covs[i] = (covs[i] / weights[i] - means[i] * means[i].transpose())
-                  .selfadjointView<Lower>();
-      covs[i] += MatrixXd::Identity(dim, dim) * noise_floor * noise_floor;
+      means[i] *= (1.0 / weights[i]);
+      covs[i] *= (1.0 / weights[i]);
+      covs[i].selfadjointView<Lower>().rankUpdate(means[i], -1.0);
+      covs[i].diagonal().array() += noise_floor * noise_floor;
       weights[i] /= s;
     }
     if (!m.Initialized() && rank > 0) {
