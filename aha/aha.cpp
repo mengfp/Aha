@@ -117,4 +117,8 @@ void Trainer::BatchTrain(const MatrixXd& samples) {
   ((trainer*)p)->BatchTrain(samples);
 }
 
+void Trainer::FastTrain(const MatrixXd& samples) {
+  ((trainer*)p)->FastTrain(samples);
+}
+
 }  // namespace aha

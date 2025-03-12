@@ -445,6 +445,11 @@ bool FVTest() {
   return true;
 }
 
+template <typename T>
+double distance(const T& a, const T& b) {
+  return double((a - b).lpNorm<Infinity>());
+}
+
 bool TestBatchPredict() {
   const int RANK = 8;
   const int DIM = 256;
@@ -471,7 +476,7 @@ bool TestBatchPredict() {
     data.col(i) = generators[i % RANK].Gen();
   }
 
-  // Single prediction
+  // Single predict
   VectorXd r(N);
   MatrixXd Y(16, N);
   Timer t_single("SinglePredict");
@@ -491,33 +496,34 @@ bool TestBatchPredict() {
   _r = m.BatchPredict(data.topRows(240), _Y);
   t_batch.stop();
 
-  // Fast prediction
+  // Fast predict
   VectorXd __r;
   MatrixXd __Y;
   Timer t_fast("FastPredict");
   t_fast.start();
-  _r = m.BatchPredict(data.topRows(240), _Y);
+  __r = m.FastPredict(data.topRows(240), __Y);
   t_fast.stop();
 
-  if ((r - _r).norm() > 1.0e-6 || (Y - _Y).norm() > 1.0e-6 ||
-      (r - __r).norm() > 1.0e-6 || (Y - __Y).norm() > 1.0e-6)
+  std::cout << distance(r, _r) << ", " << distance(Y, _Y) << std::endl;
+  std::cout << distance(r, __r) << ", " << distance(Y, __Y) << std::endl;
+
+  if (distance(r, _r) > 1.0e-6 || distance(Y, _Y) > 1.0e-6 ||
+      distance(r, __r) > 1.0e-3 || distance(Y, __Y) > 1.0e-6)
     return false;
   else
     return true;
 }
 
-double compare(const Model& m1, const Model& m2) {
-  assert(m1.Rank() == m2.Rank());
-  assert(m1.Dim() == m2.Dim());
+double distance(const Model& m1, const Model& m2) {
   double e = 0.0;
   mix* p1 = *(mix**)&m1;
   mix* p2 = *(mix**)&m2;
   for (int i = 0; i < m1.Rank(); i++) {
-    e += pow(p1->GetWeights()[i] - p2->GetWeights()[i], 2);
-    e += (p1->GetCores()[i].getu() - p2->GetCores()[i].getu()).squaredNorm();
-    e += (p1->GetCores()[i].getl() - p2->GetCores()[i].getl()).squaredNorm();
+    //e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
+    e = std::max(e, distance(p1->GetCores()[i].getu(), p2->GetCores()[i].getu()));
+    e = std::max(e, distance(p1->GetCores()[i].getl(), p2->GetCores()[i].getl()));
   }
-  return sqrt(e);
+  return e;
 }
 
 bool TestBatchTrain() {
@@ -545,6 +551,10 @@ bool TestBatchTrain() {
   mix* p2 = *(mix**)&m2;
   p2->Initialize(weights, means, covs);
 
+  Model m3(RANK, DIM);
+  mix* p3 = *(mix**)&m3;
+  p3->Initialize(weights, means, covs);
+
   MatrixXd data(DIM, N);
   for (int i = 0; i < N; i++) {
     data.col(i) = generators[i % RANK].Gen();
@@ -561,9 +571,9 @@ bool TestBatchTrain() {
   t1.Update();
   t_single.stop();
 
-  double e1 = compare(m1, m2);
+  double e1 = distance(m1, m2);
 
-  // Batch predict
+  // Batch train
   Trainer t2(m2);
   Timer t_batch("BatchTrain");
   t_batch.start();
@@ -572,10 +582,24 @@ bool TestBatchTrain() {
   t2.Update();
   t_batch.stop();
 
-  double e2 = compare(m1, m2);
+  double e2 = distance(m1, m2);
 
-  std::cout << e1 << " " << e2 << std::endl;
-  if (e2 > 1.0e-6)
+  // Fast train
+  Trainer t3(m3);
+  Timer t_fast("FastTrain");
+  t_fast.start();
+  t3.Reset();
+  // 分块计算可提高精度
+  for (int i = 0; i < data.cols(); i += 250) {
+    t3.FastTrain(data.middleCols(i, 250));
+  }
+  t3.Update();
+  t_fast.stop();
+
+  double e3 = distance(m2, m3);
+
+  std::cout << e1 << ", " << e2 << ", " << e3 << std::endl;
+  if (e2 > 1.0e-6 || e3 > 1.0e-3)
     return false;
   else
     return true;

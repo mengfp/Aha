@@ -78,6 +78,21 @@ class mvn {
                    n * log(2 * M_PI) + d(n - 1));
   }
 
+  // 快速批量计算对数概率密度
+  VectorXd FastEvaluate(const MatrixXd& X) const {
+    assert(X.rows() == u.size());
+    auto n = u.size();
+    auto _u = u.cast<float>();
+    auto _l = l.cast<float>();
+    return -0.5 * (_l.triangularView<Lower>()
+                     .solve(X.cast<float>().colwise() - _u)
+                     .colwise()
+                     .squaredNorm()
+                     .array()
+                     .cast<double>() +
+                   n * log(2 * M_PI) + d(n - 1));
+  }
+
   // 计算对数边缘概率密度
   double PartialEvaluate(const VectorXd& x) const {
     assert(x.size() <= u.size());
@@ -210,6 +225,18 @@ class mix {
     W = MatrixXd::Zero(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
       W.col(i) = weights[i] * cores[i].BatchEvaluate(X).array().exp();
+    }
+    VectorXd sum = W.rowwise().sum();
+    W = W.array().colwise() / sum.array();
+    return sum.array().log();
+  }
+
+  // 快速批量计算对数概率密度和分类权重
+  VectorXd FastEvaluate(const MatrixXd& X, MatrixXd& W) const {
+    assert((int)X.rows() == dim);
+    W = MatrixXd::Zero(X.cols(), rank);
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * cores[i].FastEvaluate(X).array().exp();
     }
     VectorXd sum = W.rowwise().sum();
     W = W.array().colwise() / sum.array();
@@ -397,9 +424,36 @@ class trainer {
         weights[i] += W.col(i).sum();
         means[i] += samples * W.col(i);
         MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-        MatrixXd m = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
+        MatrixXd m =
+          samples.array().rowwise() * W.col(i).transpose().array().sqrt();
         quadric.selfadjointView<Lower>().rankUpdate(m);
         covs[i] += quadric.selfadjointView<Lower>();
+      }
+    } else {
+      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
+      quadric.selfadjointView<Lower>().rankUpdate(samples);
+      for (int i = 0; i < rank; i++) {
+        weights[i] += samples.cols();
+        means[i] += samples.rowwise().sum();
+        covs[i] += quadric.selfadjointView<Lower>();
+      }
+    }
+  }
+
+  // 快速批量添加样本
+  void FastTrain(const MatrixXd& samples) {
+    if (m.Initialized()) {
+      MatrixXd W;
+      entropy -= m.FastEvaluate(samples, W).sum();
+      for (int i = 0; i < rank; i++) {
+        weights[i] += W.col(i).sum();
+        means[i] += samples * W.col(i);
+        MatrixXf quadric = MatrixXf::Zero(samples.rows(), samples.rows());
+        MatrixXf m =
+          (samples.array().rowwise() * W.col(i).transpose().array().sqrt())
+            .cast<float>();
+        quadric.selfadjointView<Lower>().rankUpdate(m);
+        covs[i] += quadric.cast<double>().selfadjointView<Lower>();
       }
     } else {
       MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());

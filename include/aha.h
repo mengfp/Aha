@@ -47,6 +47,7 @@ class Trainer {
   double Update(double noise_floor = 0.0);
   void Reset();
   void BatchTrain(const MatrixXd& samples);
+  void FastTrain(const MatrixXd& samples);
 
  private:
   void* p;
