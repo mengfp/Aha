@@ -447,7 +447,7 @@ bool FVTest() {
 
 template <typename T>
 double distance(const T& a, const T& b) {
-  return double((a - b).lpNorm<Infinity>());
+  return double((a - b).template lpNorm<Infinity>());
 }
 
 bool TestBatchPredict() {
