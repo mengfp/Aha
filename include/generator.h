@@ -144,9 +144,7 @@ class MVNGenerator {
     this->mean = mean;
     this->L = LLT<MatrixXd>(cov.selfadjointView<Lower>()).matrixL();
     if (seed == 0) {
-      seed = std::hash<long long>()(nano());
-    } else {
-      seed = std::hash<long long>()(seed);
+      seed = nano() ^ (uint64_t)this;
     }
     rand.seed((MTRand::uint32*)&seed, 2);
   }

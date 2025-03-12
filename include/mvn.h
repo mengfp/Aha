@@ -211,11 +211,11 @@ class mix {
     for (int i = 0; i < rank; i++) {
       w[i] = cores[i].Evaluate(x);
     }
-    auto wmax = w.maxCoeff();
+    double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
       w[i] = weights[i] * exp(w[i] - wmax);
     }
-    auto sum = w.sum();
+    double sum = w.sum();
     w.array() /= sum;
     return log(sum) + wmax;
   }
@@ -228,11 +228,11 @@ class mix {
     for (int i = 0; i < rank; i++) {
       W.col(i) = cores[i].BatchEvaluate(X);
     }
-    auto wmax = W.rowwise().maxCoeff();
+    VectorXd wmax = W.rowwise().maxCoeff();
     for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i).array() - wmax.array()).exp();
+      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
     }
-    auto sum = W.rowwise().sum();
+    VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
@@ -245,11 +245,11 @@ class mix {
     for (int i = 0; i < rank; i++) {
       W.col(i) = cores[i].FastEvaluate(X);
     }
-    auto wmax = W.rowwise().maxCoeff();
+    VectorXd wmax = W.rowwise().maxCoeff();
     for (int i = 0; i < rank; i++) {
       W.col(i) = weights[i] * (W.col(i).array() - wmax.array()).exp();
     }
-    auto sum = W.rowwise().sum();
+    VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
@@ -543,7 +543,8 @@ class trainer {
         if ((int)c.size() != dim * dim) {
           return false;
         }
-        covs[i] += Map<MatrixXd>(c.data(), dim, dim) * w;
+        covs[i] +=
+          (Map<MatrixXd>(c.data(), dim, dim) * w).selfadjointView<Lower>();
       }
       return true;
     } catch (...) {

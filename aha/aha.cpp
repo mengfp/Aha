@@ -2,7 +2,7 @@
 ** Copyright 2025 Meng, Fanping. All rights reserved.
 */
 #ifdef _MSC_VER
-#pragma warning(disable : 4819)
+#pragma warning(disable : 4819 4805)
 #endif
 
 #include <aha.h>

@@ -80,6 +80,7 @@
       <Optimization>MaxSpeed</Optimization>
       <SuppressStartupBanner>false</SuppressStartupBanner>
       <UseFullPaths>false</UseFullPaths>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>

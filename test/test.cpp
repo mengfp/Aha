@@ -2,7 +2,7 @@
 ** Copyright 2025 Meng, Fanping. All rights reserved.
 */
 #ifdef _MSC_VER
-#pragma warning(disable : 4819)
+#pragma warning(disable : 4819 4805)
 #endif
 
 #include <aha.h>
@@ -348,13 +348,18 @@ bool FVTest() {
   // Single trainer
   for (int loop = 0; loop < LOOP; loop++) {
     t.Reset();
+    auto samples = MatrixXd(DIM, 6);
     for (int i = 0; i < N; i++) {
-      t.Train(generators[0].Gen());
-      t.Train(generators[0].Gen());
-      t.Train(generators[0].Gen());
-      t.Train(generators[1].Gen());
-      t.Train(generators[1].Gen());
-      t.Train(generators[2].Gen());
+      samples.col(0) = generators[0].Gen();
+      samples.col(1) = generators[0].Gen();
+      samples.col(2) = generators[0].Gen();
+      samples.col(3) = generators[1].Gen();
+      samples.col(4) = generators[1].Gen();
+      samples.col(5) = generators[2].Gen();
+      // for (int j = 0; j < 6; j++) {
+      //   t.Train(samples.col(j));
+      // }
+      t.BatchTrain(samples);
     }
     auto e = t.Update(1.0e-4);
     std::cout << loop << ": " << e << std::endl;
@@ -519,9 +524,11 @@ double distance(const Model& m1, const Model& m2) {
   mix* p1 = *(mix**)&m1;
   mix* p2 = *(mix**)&m2;
   for (int i = 0; i < m1.Rank(); i++) {
-    //e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
-    e = std::max(e, distance(p1->GetCores()[i].getu(), p2->GetCores()[i].getu()));
-    e = std::max(e, distance(p1->GetCores()[i].getl(), p2->GetCores()[i].getl()));
+    e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
+    e =
+      std::max(e, distance(p1->GetCores()[i].getu(), p2->GetCores()[i].getu()));
+    e =
+      std::max(e, distance(p1->GetCores()[i].getl(), p2->GetCores()[i].getl()));
   }
   return e;
 }
@@ -605,6 +612,130 @@ bool TestBatchTrain() {
     return true;
 }
 
+void DebugPredict() {
+  std::vector<double> weights = {1.0 / 3, 1.0 / 3, 1.0 / 3};
+  std::vector<VectorXd> means = {
+    -10 * VectorXd::Ones(3), VectorXd::Zero(3), 10 * VectorXd::Ones(3)};
+  std::vector<MatrixXd> covs = {MatrixXd::Identity(3, 3),
+                                MatrixXd::Identity(3, 3),
+                                MatrixXd::Identity(3, 3)};
+
+  MatrixXd samples = MatrixXd::Ones(3, 3);
+  samples.col(0) *= -10;
+  samples.col(1) *= 0;
+  samples.col(2) *= 10;
+
+  Model m(3, 3);
+  mix* p = *(mix**)&m;
+  p->Initialize(weights, means, covs);
+
+  {
+    std::cout << "Single Predict" << std::endl;
+    VectorXd y;
+    for (int i = 0; i < 3; i++) {
+      auto r = m.Predict(samples.col(i).head(2), y);
+      std::cout << r << ", " << y[0] << std::endl;
+    }
+  }
+
+  {
+    std::cout << "Batch Predict" << std::endl;
+    MatrixXd Y;
+    auto R = m.BatchPredict(samples.topRows(2), Y);
+    for (int i = 0; i < 3; i++) {
+      std::cout << R[i] << ", " << Y.col(i)[0] << std::endl;
+    }
+  }
+
+  {
+    std::cout << "Fast Predict" << std::endl;
+    MatrixXd Y;
+    auto R = m.FastPredict(samples.topRows(2), Y);
+    for (int i = 0; i < 3; i++) {
+      std::cout << R[i] << ", " << Y.col(i)[0] << std::endl;
+    }
+  }
+}
+
+void DebugTrain() {
+  std::vector<double> weights = {1.0 / 3, 1.0 / 3, 1.0 / 3};
+  std::vector<VectorXd> means = {
+    -10 * VectorXd::Ones(3), VectorXd::Zero(3), 10 * VectorXd::Ones(3)};
+  std::vector<MatrixXd> covs = {MatrixXd::Identity(3, 3),
+                                MatrixXd::Identity(3, 3),
+                                MatrixXd::Identity(3, 3)};
+
+  std::vector<MVNGenerator> generators(3);
+  for (int i = 0; i < 3; i++) {
+    generators[i].Init(means[i], covs[i], i + 1);
+  }
+
+  const int N = 100;
+
+  MatrixXd samples = MatrixXd::Zero(3, N);
+  for (int i = 0; i < N; i++) {
+    samples.col(i) = generators[i % 3].Gen();
+  }
+
+  {
+    std::cout << "Single Train" << std::endl;
+    Model m(3, 3);
+    mix* p = *(mix**)&m;
+    p->Initialize(weights, means, covs);
+    Trainer t(m);
+
+    t.Reset();
+    for (int i = 0; i < N; i++) {
+      t.Train(samples.col(i));
+    }
+    auto e1 = t.Update();
+
+    t.Reset();
+    for (int i = 0; i < N; i++) {
+      t.Train(samples.col(i));
+    }
+    auto e2 = t.Update();
+
+    std::cout << e1 << ", " << e2 << std::endl;
+  }
+
+  {
+    std::cout << "Batch Train" << std::endl;
+    Model m(3, 3);
+    mix* p = *(mix**)&m;
+    p->Initialize(weights, means, covs);
+    Trainer t(m);
+
+    t.Reset();
+    t.BatchTrain(samples);
+    auto e1 = t.Update();
+
+    t.Reset();
+    t.BatchTrain(samples);
+    auto e2 = t.Update();
+
+    std::cout << e1 << ", " << e2 << std::endl;
+  }
+
+  {
+    std::cout << "Fast Train" << std::endl;
+    Model m(3, 3);
+    mix* p = *(mix**)&m;
+    p->Initialize(weights, means, covs);
+    Trainer t(m);
+
+    t.Reset();
+    t.FastTrain(samples);
+    auto e1 = t.Update();
+
+    t.Reset();
+    t.FastTrain(samples);
+    auto e2 = t.Update();
+
+    std::cout << e1 << ", " << e2 << std::endl;
+  }
+}
+
 int main() {
   // TestGaussian();
   // TestRand();
@@ -614,6 +745,8 @@ int main() {
   // TestMVNGenerator();
   // TestImportExport();
   // TestSpitSwallow();
+  // DebugPredict();
+  // DebugTrain();
 
   if (FVTest()) {
     std::cout << "### FVTest OK ###" << std::endl;
