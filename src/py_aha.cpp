@@ -39,14 +39,17 @@ PYBIND11_MODULE(aha, m) {
     .def(
       "BatchPredict",
       [](const Model& self, const MatrixXd& x) {
-        VectorXd r = VectorXd::Zero(x.rows());
-        MatrixXd y = MatrixXd::Zero(x.rows(), self.Dim() - x.cols());
-        VectorXd temp;
-        for (int i = 0; i < (int)x.rows(); i++) {
-          r[i] = self.Predict(x.row(i), temp);
-          y.row(i) = temp;
-        }
-        return py::make_tuple(r, y);
+        MatrixXd y;
+        auto r = self.BatchPredict(x.transpose(), y);
+        return py::make_tuple(r, y.transpose());
+      },
+      py::arg("x"))
+    .def(
+      "FastPredict",
+      [](const Model& self, const MatrixXd& x) {
+        MatrixXd y;
+        auto r = self.FastPredict(x.transpose(), y);
+        return py::make_tuple(r, y.transpose());
       },
       py::arg("x"))
     .def("Sort", &Model::Sort)
@@ -67,9 +70,13 @@ PYBIND11_MODULE(aha, m) {
     .def(
       "BatchTrain",
       [](Trainer& self, const MatrixXd& samples) {
-        for (auto row : samples.rowwise()) {
-          self.Train(row);
-        }
+        self.BatchTrain(samples.transpose());
+      },
+      py::arg("samples"))
+    .def(
+      "FastTrain",
+      [](Trainer& self, const MatrixXd& samples) {
+        self.FastTrain(samples.transpose());
       },
       py::arg("samples"))
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
