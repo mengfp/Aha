@@ -205,42 +205,53 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double Evaluate(const VectorXd& x, std::vector<double>& w) const {
+  double Evaluate(const VectorXd& x, VectorXd& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
-    double sum = 0;
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(cores[i].Evaluate(x));
-      sum += w[i];
+      w[i] = cores[i].Evaluate(x);
     }
+    auto wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] /= sum;
+      w[i] = weights[i] * exp(w[i] - wmax);
     }
-    return log(sum);
+    auto sum = w.sum();
+    w.array() /= sum;
+    return log(sum) + wmax;
   }
 
   // 批量计算对数概率密度和分类权重
   VectorXd BatchEvaluate(const MatrixXd& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
-    W = MatrixXd::Zero(X.cols(), rank);
+    assert(W.rows() == X.cols());
+    assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * cores[i].BatchEvaluate(X).array().exp();
+      W.col(i) = cores[i].BatchEvaluate(X);
     }
-    VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    return sum.array().log();
+    auto wmax = W.rowwise().maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * (W.col(i).array() - wmax.array()).exp();
+    }
+    auto sum = W.rowwise().sum();
+    W.array().colwise() /= sum.array();
+    return sum.array().log() + wmax.array();
   }
 
   // 快速批量计算对数概率密度和分类权重
   VectorXd FastEvaluate(const MatrixXd& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
-    W = MatrixXd::Zero(X.cols(), rank);
+    assert(W.rows() == X.cols());
+    assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * cores[i].FastEvaluate(X).array().exp();
+      W.col(i) = cores[i].FastEvaluate(X);
     }
-    VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    return sum.array().log();
+    auto wmax = W.rowwise().maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * (W.col(i).array() - wmax.array()).exp();
+    }
+    auto sum = W.rowwise().sum();
+    W.array().colwise() /= sum.array();
+    return sum.array().log() + wmax.array();
   }
 
   // 计算对数边缘概率密度和条件期望
@@ -391,13 +402,13 @@ class trainer {
       entropy(0),
       weights(m.Rank()),
       means(m.Rank()),
-      covs(m.Rank()),
-      temp(m.Rank()) {
+      covs(m.Rank()) {
   }
 
   // 添加一个样本
   void Train(const VectorXd& sample) {
     if (m.Initialized()) {
+      VectorXd temp = VectorXd::Zero(rank);
       entropy -= m.Evaluate(sample, temp);
       MatrixXd quadric = (sample * sample.transpose()).selfadjointView<Lower>();
       for (int i = 0; i < rank; i++) {
@@ -418,7 +429,7 @@ class trainer {
   // 批量添加样本
   void BatchTrain(const MatrixXd& samples) {
     if (m.Initialized()) {
-      MatrixXd W;
+      MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
       for (int i = 0; i < rank; i++) {
         weights[i] += W.col(i).sum();
@@ -443,7 +454,7 @@ class trainer {
   // 快速批量添加样本
   void FastTrain(const MatrixXd& samples) {
     if (m.Initialized()) {
-      MatrixXd W;
+      MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
       for (int i = 0; i < rank; i++) {
         weights[i] += W.col(i).sum();
@@ -592,7 +603,6 @@ class trainer {
       weights[i] = 0;
       means[i] = VectorXd::Zero(dim);
       covs[i] = MatrixXd::Zero(dim, dim);
-      temp[i] = 0;
     }
   }
 
@@ -604,7 +614,6 @@ class trainer {
   std::vector<double> weights;
   std::vector<VectorXd> means;
   std::vector<MatrixXd> covs;
-  std::vector<double> temp;
 };
 
 }  // namespace aha
