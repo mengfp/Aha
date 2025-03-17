@@ -60,7 +60,14 @@ PYBIND11_MODULE(aha, m) {
            auto data = self.Dump();
            return py::bytes(data.data(), data.size());
          })
-    .def("Load", &Model::Load, py::arg("model"));
+    .def(
+      "Load",
+      [](Model& self, py::bytes model) {
+        py::buffer_info info(py::buffer(model).request());
+        std::vector<char> data((char*)info.ptr, (char*)info.ptr + info.size);
+        return self.Load(data);
+      },
+      py::arg("model"));
 
   // class Trainer
   py::class_<Trainer>(m, "Trainer")
@@ -95,5 +102,13 @@ PYBIND11_MODULE(aha, m) {
            auto data = self.Dump();
            return py::bytes(data.data(), data.size());
          })
-    .def("Load", &Trainer::Load, py::arg("trainer"), py::arg("w") = 1.0);
+    .def(
+      "Load",
+      [](Trainer& self, py::bytes trainer, double w) {
+        py::buffer_info info(py::buffer(trainer).request());
+        std::vector<char> data((char*)info.ptr, (char*)info.ptr + info.size);
+        return self.Load(data, w);
+      },
+      py::arg("trainer"),
+      py::arg("w") = 1.0);
 }
