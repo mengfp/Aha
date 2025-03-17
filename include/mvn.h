@@ -9,8 +9,10 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
+#include <string>
 #include <Eigen/Dense>
 
+#include "version.h"
 #include "generator.h"
 
 #ifndef M_PI
@@ -380,6 +382,73 @@ class mix {
       std::cout << "s:\n"
                 << cores[i].getl() * cores[i].getl().transpose() << "\n\n";
     }
+  }
+
+  // 以二进制导出
+  std::vector<char> Dump() const {
+    if (!Initialized()) {
+      return {};
+    }
+    const int magic = MAGIC;
+    const int version = parse_version(VERSION);
+    std::vector<char> model;
+    model.insert(model.end(), (char*)&magic, (char*)(&magic + 1));
+    model.insert(model.end(), (char*)&version, (char*)(&version + 1));
+    model.insert(model.end(), (char*)&rank, (char*)(&rank + 1));
+    model.insert(model.end(), (char*)&dim, (char*)(&dim + 1));
+    model.insert(model.end(),
+                 (char*)weights.data(),
+                 (char*)(weights.data() + weights.size()));
+    for (int i = 0; i < rank; i++) {
+      auto& u = cores[i].getu();
+      auto& l = cores[i].getl();
+      MatrixXd s = l * l.transpose();
+      model.insert(model.end(), (char*)u.data(), (char*)(u.data() + u.size()));
+      model.insert(model.end(), (char*)s.data(), (char*)(s.data() + s.size()));
+    }
+    return model;
+  }
+
+  // 以二进制导入
+  bool Load(const std::vector<char>& model) {
+    if (model.size() < sizeof(int) * 4) {
+      return false;
+    }
+
+    // 检查数据头
+    const char* p = model.data();
+    int magic = *(int*)p;
+    if (magic != MAGIC) {
+      return false;
+    }
+    p += sizeof(int) * 2;
+
+    // 读取阶数和维数
+    int r = *(int*)p;
+    p += sizeof(int);
+    int d = *(int*)p;
+    p += sizeof(int);
+
+    // 检查字节数
+    if (model.size() != sizeof(double) * (r + (d + d * d) * r) + sizeof(int) * 4) {
+      return false;
+    }
+
+    // 加载模型
+    rank = r;
+    dim = d;
+    weights.assign((double*)p, (double*)p + rank);
+    p += sizeof(double) * rank;
+    cores.resize(rank);
+    for (int i = 0; i < rank; i++) {
+      auto u = Map<VectorXd>((double*)p, dim);
+      p += sizeof(double) * dim;
+      auto s = Map<MatrixXd>((double*)p, dim, dim);
+      p += sizeof(double) * dim * dim;
+      cores[i].Initialize(u, s);
+    }
+
+    return true;
   }
 
  protected:

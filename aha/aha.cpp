@@ -68,6 +68,14 @@ VectorXd Model::FastPredict(const MatrixXd& X, MatrixXd& Y) const {
   return ((mix*)p)->FastPredict(X, Y);
 }
 
+std::vector<char> Model::Dump() const {
+  return ((mix*)p)->Dump();
+}
+
+bool Model::Load(const std::vector<char>& model) {
+  return ((mix*)p)->Load(model);
+}
+
 Trainer::Trainer(Model& m) {
   p = new trainer(*(mix*)*(void**)&m);
 }

@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <iostream>
 #include <chrono>
+#include <string>
 
 using namespace std::chrono;
 using namespace aha;
@@ -260,12 +261,48 @@ bool TestImportExport() {
   std::cout << "Original:" << std::endl;
   m.Print();
   std::string model = m.Export();
+  std::cout << "model size = " << model.size() << std::endl;
   std::cout << "Exported:" << std::endl;
   std::cout << model << std::endl;
   mix m2;
   m2.Import(model);
   std::cout << "Imported:" << std::endl;
   m2.Print();
+  return true;
+}
+
+bool TestDumpLoad() {
+  std::vector<double> weights(2);
+  std::vector<VectorXd> means(2);
+  std::vector<MatrixXd> covs(2);
+
+  weights[0] = 0.1;
+  weights[1] = 0.9;
+
+  means[0] = VectorXd::Zero(3);
+  means[0] << 1, 2, 3;
+  means[1] = VectorXd::Zero(3);
+  means[1] << 3, 2, 1;
+
+  covs[0] = MatrixXd::Identity(3, 3);
+  covs[1] = MatrixXd::Zero(3, 3);
+  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 32.4796258609215869,
+    110.549260960654465, -152.033658539600196, 31.6838227860951349,
+    -152.033658539600196, 373.530902783367878;
+
+  mix m;
+  m.Initialize(weights, means, covs);
+  std::cout << "Original:" << std::endl;
+  m.Print();
+  auto model = m.Dump();
+  std::cout << "model size = " << model.size() << std::endl;
+  mix m2;
+  if (m2.Load(model)) {
+    std::cout << "Reloaded:" << std::endl;
+    m2.Print();
+  } else {
+    std::cout << "Error" << std::endl;
+  }
   return true;
 }
 
@@ -367,11 +404,22 @@ bool FVTest() {
 
   // To and from json
   auto json = m.Export();
-  std::cout << "model: " << json << std::endl;
+  std::cout << "json size: " << json.size() << std::endl;
+  std::cout << "json: " << json << std::endl;
   if (json.empty()) {
     return false;
   }
   if (!m.Import(json)) {
+    return false;
+  }
+
+  // Dump and load binary
+  auto model = m.Dump();
+  std::cout << "model size: " << model.size() << std::endl;
+  if (model.empty()) {
+    return false;
+  }
+  if (!m.Load(model)) {
     return false;
   }
 
@@ -744,6 +792,7 @@ int main() {
   // TestNonLinear();
   // TestMVNGenerator();
   // TestImportExport();
+  // TestDumpLoad();
   // TestSpitSwallow();
   // DebugPredict();
   // DebugTrain();

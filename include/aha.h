@@ -28,6 +28,8 @@ class Model {
   bool Import(const std::string& model);
   VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const;
   VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const;
+  std::vector<char> Dump() const;
+  bool Load(const std::vector<char>& model);
 
  private:
   void* p;
