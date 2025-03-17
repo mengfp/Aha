@@ -309,6 +309,7 @@ bool TestDumpLoad() {
 bool TestSpitSwallow() {
   mix m(2, 3);
   trainer t(m);
+  t.Reset();
 
   std::string j = R"({
         "r": 2,
@@ -318,8 +319,12 @@ bool TestSpitSwallow() {
         "m": [[100, 200, 300], [400, 500, 600]],
         "c": [[1,2,3,4,5,6,7,8,9], [9,8,7,6,5,4,3,2,1]]
           })";
-  std::cout << t.Swallow(j) << std::endl;
-  std::cout << t.Spit() << std::endl;
+  std::cout << "Swallow: " << t.Swallow(j) << std::endl;
+  std::cout << "Spit: " << t.Spit() << std::endl;
+
+  // test Dump/Load
+  std::cout << "Dump/Load: " << t.Load(t.Dump()) << std::endl;
+  std::cout << "Spit again: " << t.Spit() << std::endl;
 
   return true;
 }

@@ -29,7 +29,7 @@ class Model {
   VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const;
   VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const;
   std::vector<char> Dump() const;
-  bool Load(const std::vector<char>& model);
+  bool Load(const std::vector<char>& input);
 
  private:
   void* p;
@@ -44,12 +44,14 @@ class Trainer {
   void Train(const VectorXd& sample);
   void Train(const std::vector<double>& sample);
   bool Merge(const Trainer& t, double w = 1.0);
-  std::string Spit();
+  std::string Spit() const;
   bool Swallow(const std::string& t, double w = 1.0);
   double Update(double noise_floor = 0.0);
   void Reset();
   void BatchTrain(const MatrixXd& samples);
   void FastTrain(const MatrixXd& samples);
+  std::vector<char> Dump() const;
+  bool Load(const std::vector<char>& input, double w = 1.0);
 
  private:
   void* p;

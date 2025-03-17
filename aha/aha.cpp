@@ -72,8 +72,8 @@ std::vector<char> Model::Dump() const {
   return ((mix*)p)->Dump();
 }
 
-bool Model::Load(const std::vector<char>& model) {
-  return ((mix*)p)->Load(model);
+bool Model::Load(const std::vector<char>& input) {
+  return ((mix*)p)->Load(input);
 }
 
 Trainer::Trainer(Model& m) {
@@ -105,7 +105,7 @@ bool Trainer::Merge(const Trainer& t, double w) {
   return ((trainer*)p)->Merge(*(const trainer*)*(void**)&t, w);
 }
 
-std::string Trainer::Spit() {
+std::string Trainer::Spit() const {
   return ((trainer*)p)->Spit();
 }
 
@@ -127,6 +127,14 @@ void Trainer::BatchTrain(const MatrixXd& samples) {
 
 void Trainer::FastTrain(const MatrixXd& samples) {
   ((trainer*)p)->FastTrain(samples);
+}
+
+std::vector<char> Trainer::Dump() const {
+  return ((trainer*)p)->Dump();
+}
+
+bool Trainer::Load(const std::vector<char>& input, double w) {
+  return ((trainer*)p)->Load(input, w);
 }
 
 }  // namespace aha

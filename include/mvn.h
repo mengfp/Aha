@@ -391,49 +391,45 @@ class mix {
     }
     const int magic = MAGIC;
     const int version = parse_version(VERSION);
-    std::vector<char> model;
-    model.insert(model.end(), (char*)&magic, (char*)(&magic + 1));
-    model.insert(model.end(), (char*)&version, (char*)(&version + 1));
-    model.insert(model.end(), (char*)&rank, (char*)(&rank + 1));
-    model.insert(model.end(), (char*)&dim, (char*)(&dim + 1));
-    model.insert(model.end(),
+    std::vector<char> output;
+    output.insert(output.end(), (char*)&magic, (char*)(&magic + 1));
+    output.insert(output.end(), (char*)&version, (char*)(&version + 1));
+    output.insert(output.end(), (char*)&rank, (char*)(&rank + 1));
+    output.insert(output.end(), (char*)&dim, (char*)(&dim + 1));
+    output.insert(output.end(),
                  (char*)weights.data(),
                  (char*)(weights.data() + weights.size()));
     for (int i = 0; i < rank; i++) {
       auto& u = cores[i].getu();
       auto& l = cores[i].getl();
       MatrixXd s = l * l.transpose();
-      model.insert(model.end(), (char*)u.data(), (char*)(u.data() + u.size()));
-      model.insert(model.end(), (char*)s.data(), (char*)(s.data() + s.size()));
+      output.insert(output.end(), (char*)u.data(), (char*)(u.data() + u.size()));
+      output.insert(output.end(), (char*)s.data(), (char*)(s.data() + s.size()));
     }
-    return model;
+    return output;
   }
 
   // 以二进制导入
-  bool Load(const std::vector<char>& model) {
-    if (model.size() < sizeof(int) * 4) {
+  bool Load(const std::vector<char>& input) {
+    if (input.size() < sizeof(int) * 4) {
       return false;
     }
-
     // 检查数据头
-    const char* p = model.data();
+    const char* p = input.data();
     int magic = *(int*)p;
     if (magic != MAGIC) {
       return false;
     }
     p += sizeof(int) * 2;
-
     // 读取阶数和维数
     int r = *(int*)p;
     p += sizeof(int);
     int d = *(int*)p;
     p += sizeof(int);
-
     // 检查字节数
-    if (model.size() != sizeof(double) * (r + (d + d * d) * r) + sizeof(int) * 4) {
+    if (input.size() != sizeof(double) * (r + (d + d * d) * r) + sizeof(int) * 4) {
       return false;
     }
-
     // 加载模型
     rank = r;
     dim = d;
@@ -447,7 +443,6 @@ class mix {
       p += sizeof(double) * dim * dim;
       cores[i].Initialize(u, s);
     }
-
     return true;
   }
 
@@ -674,6 +669,63 @@ class trainer {
       means[i] = VectorXd::Zero(dim);
       covs[i] = MatrixXd::Zero(dim, dim);
     }
+  }
+
+  // 以二进制导出训练结果
+  std::vector<char> Dump() const {
+    std::vector<char> output;
+    output.insert(output.end(), (char*)&rank, (char*)(&rank + 1));
+    output.insert(output.end(), (char*)&dim, (char*)(&dim + 1));
+    output.insert(output.end(), (char*)&entropy, (char*)(&entropy + 1));
+    output.insert(output.end(),
+                  (char*)weights.data(),
+                  (char*)(weights.data() + weights.size()));
+    for (int i = 0; i < rank; i++) {
+      output.insert(output.end(),
+                    (char*)means[i].data(),
+                    (char*)(means[i].data() + means[i].size()));
+      output.insert(output.end(),
+                    (char*)covs[i].data(),
+                    (char*)(covs[i].data() + covs[i].size()));
+    }
+    return output;
+  }
+
+  // 以二进制合并训练结果
+  bool Load(const std::vector<char> input, double w = 1.0) {
+    if (input.size() < sizeof(int) * 2) {
+      return false;
+    }
+    // 检查阶数和维数
+    const char* p = input.data();
+    int r = *(int*)p;
+    p += sizeof(int);
+    int d = *(int*)p;
+    p += sizeof(int);
+    if (r != rank || d != dim) {
+      return false;
+    }
+    // 检查字节数
+    if (input.size() !=
+        sizeof(double) * (1 + r + (d + d * d) * r) + sizeof(int) * 2) {
+      return false;
+    }
+    // 合并结果
+    entropy += *(double*)p * w;
+    p += sizeof(double);
+    for (int i = 0; i < rank; i++) {
+      weights[i] += *(double*)p * w;
+      p += sizeof(double);
+    }
+    for (int i = 0; i < rank; i++) {
+      auto u = Map<VectorXd>((double*)p, dim);
+      means[i] += u * w;
+      p += sizeof(double) * dim;
+      auto s = Map<MatrixXd>((double*)p, dim, dim);
+      covs[i] += (s * w).selfadjointView<Lower>();
+      p += sizeof(double) * dim * dim;
+    }
+    return true;
   }
 
  protected:
