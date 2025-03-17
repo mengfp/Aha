@@ -55,7 +55,11 @@ PYBIND11_MODULE(aha, m) {
     .def("Sort", &Model::Sort)
     .def("Export", &Model::Export)
     .def("Import", &Model::Import, py::arg("model"))
-    .def("Dump", &Model::Dump)
+    .def("Dump",
+         [](const Model& self) {
+           auto data = self.Dump();
+           return py::bytes(data.data(), data.size());
+         })
     .def("Load", &Model::Load, py::arg("model"));
 
   // class Trainer
@@ -86,6 +90,10 @@ PYBIND11_MODULE(aha, m) {
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0)
     .def("Reset", &Trainer::Reset)
-    .def("Dump", &Trainer::Dump)
+    .def("Dump",
+         [](const Trainer& self) {
+           auto data = self.Dump();
+           return py::bytes(data.data(), data.size());
+         })
     .def("Load", &Trainer::Load, py::arg("trainer"), py::arg("w") = 1.0);
 }
