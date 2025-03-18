@@ -7,3 +7,4 @@ add_library(aha STATIC ${SOURCE_FILES})
 
 install(TARGETS aha DESTINATION lib)
 install(FILES ../include/aha.h DESTINATION include)
+install(DIRECTORY ../eigen/Eigen DESTINATION include)
