@@ -12,7 +12,11 @@
 
 namespace aha {
 
-using namespace Eigen;
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
+using Eigen::LLT;
+using Eigen::Lower;
+using Eigen::Infinity;
 
 inline uint64_t nano() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(

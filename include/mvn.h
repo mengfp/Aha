@@ -21,7 +21,16 @@
 
 namespace aha {
 
-using namespace Eigen;
+using Eigen::DiagonalMatrix;
+using Eigen::Dynamic;
+using Eigen::LLT;
+using Eigen::Lower;
+using Eigen::Map;
+using Eigen::MatrixXd;
+using Eigen::MatrixXf;
+using Eigen::VectorXd;
+using Eigen::VectorXf;
+using Eigen::Infinity;
 
 using json = nlohmann::ordered_json;
 

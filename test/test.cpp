@@ -21,7 +21,6 @@
 
 using namespace std::chrono;
 using namespace aha;
-using namespace Eigen;
 
 bool TestGaussian() {
   VectorXd mu(4);

@@ -10,7 +10,8 @@
 
 namespace aha {
 
-using namespace Eigen;
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 std::string Version();
 
