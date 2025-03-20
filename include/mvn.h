@@ -260,17 +260,20 @@ class mix {
   double Predict(const VectorXd& x, VectorXd& y) const {
     assert((int)x.size() <= dim);
     std::vector<VectorXd> v(rank);
-    std::vector<double> w(rank);
-    double sum = 0;
+    VectorXd w(rank);
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(cores[i].Predict(x, v[i]));
-      sum += w[i];
+      w[i] = cores[i].Predict(x, v[i]);
     }
+    double wmax = w.maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      w[i] = weights[i] * exp(w[i] - wmax);
+    }
+    double sum = w.sum();
     y = VectorXd::Zero(dim - x.size());
     for (int i = 0; i < rank; i++) {
       y += (w[i] / sum) * v[i];
     }
-    return log(sum);
+    return log(sum) + wmax;
   }
 
   // 批量计算对数边缘概率密度和条件期望
@@ -279,7 +282,11 @@ class mix {
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * cores[i].BatchPredict(X, V[i]).array().exp();
+      W.col(i) = cores[i].BatchPredict(X, V[i]);
+    }
+    VectorXd wmax = W.rowwise().maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
     }
     VectorXd sum = W.rowwise().sum();
     W = W.array().colwise() / sum.array();
@@ -287,7 +294,7 @@ class mix {
     for (int i = 0; i < rank; i++) {
       Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
     }
-    return sum.array().log();
+    return sum.array().log() + wmax.array();
   }
 
   // 快速计算对数边缘概率密度和条件期望
@@ -296,7 +303,11 @@ class mix {
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * cores[i].FastPredict(X, V[i]).array().exp();
+      W.col(i) = cores[i].FastPredict(X, V[i]);
+    }
+    VectorXd wmax = W.rowwise().maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
     }
     VectorXd sum = W.rowwise().sum();
     W = W.array().colwise() / sum.array();
@@ -304,7 +315,7 @@ class mix {
     for (int i = 0; i < rank; i++) {
       Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
     }
-    return sum.array().log();
+    return sum.array().log() + wmax.array();
   }
 
   // 导出Json字符串
@@ -397,14 +408,16 @@ class mix {
     output.insert(output.end(), (char*)&rank, (char*)(&rank + 1));
     output.insert(output.end(), (char*)&dim, (char*)(&dim + 1));
     output.insert(output.end(),
-                 (char*)weights.data(),
-                 (char*)(weights.data() + weights.size()));
+                  (char*)weights.data(),
+                  (char*)(weights.data() + weights.size()));
     for (int i = 0; i < rank; i++) {
       auto& u = cores[i].getu();
       auto& l = cores[i].getl();
       MatrixXd s = l * l.transpose();
-      output.insert(output.end(), (char*)u.data(), (char*)(u.data() + u.size()));
-      output.insert(output.end(), (char*)s.data(), (char*)(s.data() + s.size()));
+      output.insert(
+        output.end(), (char*)u.data(), (char*)(u.data() + u.size()));
+      output.insert(
+        output.end(), (char*)s.data(), (char*)(s.data() + s.size()));
     }
     return output;
   }
@@ -427,7 +440,8 @@ class mix {
     int d = *(int*)p;
     p += sizeof(int);
     // 检查字节数
-    if (input.size() != sizeof(double) * (r + (d + d * d) * r) + sizeof(int) * 4) {
+    if (input.size() !=
+        sizeof(double) * (r + (d + d * d) * r) + sizeof(int) * 4) {
       return false;
     }
     // 加载模型

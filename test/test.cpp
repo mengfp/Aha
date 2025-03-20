@@ -17,6 +17,7 @@
 #include <iostream>
 #include <chrono>
 #include <string>
+#include <random>
 
 using namespace std::chrono;
 using namespace aha;
@@ -512,6 +513,7 @@ bool TestBatchPredict() {
   const int RANK = 8;
   const int DIM = 256;
   const int N = 10000;
+  const int K = 16;
 
   std::vector<double> weights(RANK);
   std::vector<VectorXd> means(RANK);
@@ -536,12 +538,12 @@ bool TestBatchPredict() {
 
   // Single predict
   VectorXd r(N);
-  MatrixXd Y(16, N);
+  MatrixXd Y(K, N);
   Timer t_single("SinglePredict");
   t_single.start();
   for (int i = 0; i < N; i++) {
     VectorXd y;
-    r[i] = m.Predict(data.col(i).head(240), y);
+    r[i] = m.Predict(data.col(i).head(DIM - K), y);
     Y.col(i) = y;
   }
   t_single.stop();
@@ -551,7 +553,7 @@ bool TestBatchPredict() {
   MatrixXd _Y;
   Timer t_batch("BatchPredict");
   t_batch.start();
-  _r = m.BatchPredict(data.topRows(240), _Y);
+  _r = m.BatchPredict(data.topRows(DIM - K), _Y);
   t_batch.stop();
 
   // Fast predict
@@ -559,7 +561,7 @@ bool TestBatchPredict() {
   MatrixXd __Y;
   Timer t_fast("FastPredict");
   t_fast.start();
-  __r = m.FastPredict(data.topRows(240), __Y);
+  __r = m.FastPredict(data.topRows(DIM - K), __Y);
   t_fast.stop();
 
   std::cout << distance(r, _r) << ", " << distance(Y, _Y) << std::endl;
@@ -789,6 +791,56 @@ void DebugTrain() {
   }
 }
 
+int TestPredicts() {
+  // load model
+  std::ifstream ifs("elite.model", std::ios::binary);
+  if (!ifs) {
+    std::cout << "cannot open model file" << std::endl;
+    return 1;
+  }
+  // get file size
+  ifs.seekg(0, std::ios::end);
+  auto file_size = ifs.tellg();
+  ifs.seekg(0, std::ios::beg);
+  // read to buffer
+  std::vector<char> buffer(file_size);
+  ifs.read(buffer.data(), buffer.size());
+  // load model data
+  aha::Model model;
+  if (!model.Load(buffer)) {
+    std::cout << "loading model error" << std::endl;
+    return 1;
+  }
+
+  std::mt19937 rng(0);
+  std::normal_distribution<double> dist(0.0, 1.0);
+
+  aha::MatrixXd in = aha::MatrixXd::Zero(100, 3);
+  for (int i = 0; i < 100; i++) {
+    for (int j = 0; j < 3; j++) {
+      in(i, j) = dist(rng);
+    }
+  }
+
+  aha::MatrixXd out(20, 3);
+  aha::VectorXd y;
+  model.Predict(in.col(0), y);
+  out.col(0) = y;
+  model.Predict(in.col(1), y);
+  out.col(1) = y;
+  model.Predict(in.col(2), y);
+  out.col(2) = y;
+  std::cout << out << std::endl << std::endl;
+
+  model.BatchPredict(in, out);
+  std::cout << out << std::endl << std::endl;
+
+  model.FastPredict(in, out);
+  std::cout << out << std::endl;
+
+  return 0;
+}
+
 int main() {
   // TestGaussian();
   // TestRand();
@@ -801,6 +853,7 @@ int main() {
   // TestSpitSwallow();
   // DebugPredict();
   // DebugTrain();
+  // TestPredicts();
 
   if (FVTest()) {
     std::cout << "### FVTest OK ###" << std::endl;
