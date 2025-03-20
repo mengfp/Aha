@@ -80,7 +80,7 @@ bool TestRand() {
   const int N = 1000000;
   double mean = 0;
   double var = 0;
-  MTRand rand(uint32_t(1));
+  Random rand(uint32_t(1));
   for (int i = 0; i < N; i++) {
     auto x = rand.randNorm(0.0, 1.0);
     mean += x;
@@ -812,13 +812,12 @@ int TestPredicts() {
     return 1;
   }
 
-  std::mt19937 rng(0);
-  std::normal_distribution<double> dist(0.0, 1.0);
+  Random random;
 
   aha::MatrixXd in = aha::MatrixXd::Zero(100, 3);
   for (int i = 0; i < 100; i++) {
     for (int j = 0; j < 3; j++) {
-      in(i, j) = dist(rng);
+      in(i, j) = random.randNorm(0.0, 1.0);
     }
   }
 

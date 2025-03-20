@@ -7,10 +7,8 @@
 #include <chrono>
 #include <vector>
 #include <Eigen/Dense>
-
-#define register
-#include "MersenneTwister.h"
-#undef register
+#include <random>
+#include <iostream>
 
 namespace aha {
 
@@ -21,6 +19,32 @@ inline uint64_t nano() {
            std::chrono::steady_clock::now().time_since_epoch())
     .count();
 }
+
+class Random {
+ public:
+  Random(uint32_t seed = 0) {
+    rng.seed(seed);
+  }
+
+  void seed(uint32_t seed) {
+    rng.seed(seed);
+  }
+
+  double rand() {
+    return rng() * (1.0 / std::mt19937::max());
+  }
+
+  uint32_t randInt() {
+    return rng();
+  }
+
+  double randNorm(const double& mean, const double& variance) {
+    return std::normal_distribution<double>(mean, variance)(rng);
+  }
+
+ private:
+  std::mt19937 rng;
+};
 
 class Generator {
  public:
@@ -79,7 +103,7 @@ class Generator {
   std::vector<double> weights;
   std::vector<VectorXd> means;
   std::vector<MatrixXd> ls;
-  MTRand rand;
+  Random rand;
 };
 
 class Gen2 {
@@ -109,7 +133,7 @@ class Gen2 {
   }
 
  protected:
-  MTRand rand;
+  Random rand;
 };
 
 class GenNonLinear {
@@ -128,7 +152,7 @@ class GenNonLinear {
   }
 
  protected:
-  MTRand rand;
+  Random rand;
 };
 
 class MVNGenerator {
@@ -146,7 +170,7 @@ class MVNGenerator {
     if (seed == 0) {
       seed = nano() ^ (uint64_t)this;
     }
-    rand.seed((MTRand::uint32*)&seed, 2);
+    rand.seed((uint32_t)seed);
   }
 
   VectorXd Gen() {
@@ -160,7 +184,7 @@ class MVNGenerator {
  public:
   VectorXd mean;
   MatrixXd L;
-  MTRand rand;
+  Random rand;
 };
 
 }  // namespace aha
