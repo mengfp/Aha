@@ -855,6 +855,8 @@ int main() {
   // DebugTrain();
   // TestPredicts();
 
+  std::cout << "Aha version " << aha::Version() << std::endl;
+
   if (FVTest()) {
     std::cout << "### FVTest OK ###" << std::endl;
   } else {
