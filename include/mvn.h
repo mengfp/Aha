@@ -31,6 +31,7 @@ using Eigen::MatrixXf;
 using Eigen::VectorXd;
 using Eigen::VectorXf;
 using Eigen::Infinity;
+using Eigen::Success;
 
 using json = nlohmann::ordered_json;
 
