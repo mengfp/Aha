@@ -121,6 +121,7 @@ class mvn {
     assert(x.size() <= u.size());
     auto n = u.size();
     auto k = x.size();
+    y.resize(n - k);
     VectorXd temp =
       l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
@@ -132,6 +133,7 @@ class mvn {
     assert(X.rows() <= u.size());
     auto n = u.size();
     auto k = X.rows();
+    Y.resize(n - k, X.cols());
     MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
       X.colwise() - u.head(k));
     Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
@@ -144,6 +146,7 @@ class mvn {
     assert(X.rows() <= u.size());
     auto n = u.size();
     auto k = X.rows();
+    Y.resize(n - k, X.cols());
     auto _u = u.cast<float>();
     auto _l = l.cast<float>();
     MatrixXf temp = _l.topLeftCorner(k, k).triangularView<Lower>().solve(
@@ -279,7 +282,8 @@ class mix {
       w[i] = weights[i] * exp(w[i] - wmax);
     }
     double sum = w.sum();
-    y = VectorXd::Zero(dim - x.size());
+    y.resize(dim - x.size());
+    y.setZero();
     for (int i = 0; i < rank; i++) {
       y += (w[i] / sum) * v[i];
     }
@@ -300,7 +304,8 @@ class mix {
     }
     VectorXd sum = W.rowwise().sum();
     W = W.array().colwise() / sum.array();
-    Y = MatrixXd::Zero(dim - X.rows(), X.cols());
+    Y.resize(dim - X.rows(), X.cols());
+    Y.setZero();
     for (int i = 0; i < rank; i++) {
       Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
     }
@@ -321,7 +326,8 @@ class mix {
     }
     VectorXd sum = W.rowwise().sum();
     W = W.array().colwise() / sum.array();
-    Y = MatrixXd::Zero(dim - X.rows(), X.cols());
+    Y.resize(dim - X.rows(), X.cols());
+    Y.setZero();
     for (int i = 0; i < rank; i++) {
       Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
     }
