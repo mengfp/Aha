@@ -37,6 +37,15 @@ PYBIND11_MODULE(aha, m) {
       },
       py::arg("x"))
     .def(
+      "PredictEx",
+      [](const Model& self, const VectorXd& x) {
+        VectorXd y;
+        MatrixXd cov;
+        auto r = self.PredictEx(x, y, cov);
+        return py::make_tuple(r, y, cov.transpose());
+      },
+      py::arg("x"))
+    .def(
       "BatchPredict",
       [](const Model& self, const MatrixXd& x) {
         MatrixXd y;
@@ -45,11 +54,29 @@ PYBIND11_MODULE(aha, m) {
       },
       py::arg("x"))
     .def(
+      "BatchPredictEx",
+      [](const Model& self, const MatrixXd& x) {
+        MatrixXd y;
+        MatrixXd cov;
+        auto r = self.BatchPredictEx(x.transpose(), y, cov);
+        return py::make_tuple(r, y.transpose(), cov.transpose());
+      },
+      py::arg("x"))
+    .def(
       "FastPredict",
       [](const Model& self, const MatrixXd& x) {
         MatrixXd y;
         auto r = self.FastPredict(x.transpose(), y);
         return py::make_tuple(r, y.transpose());
+      },
+      py::arg("x"))
+    .def(
+      "FastPredictEx",
+      [](const Model& self, const MatrixXd& x) {
+        MatrixXd y;
+        MatrixXd cov;
+        auto r = self.FastPredictEx(x.transpose(), y, cov);
+        return py::make_tuple(r, y.transpose(), cov.transpose());
       },
       py::arg("x"))
     .def("Sort", &Model::Sort)

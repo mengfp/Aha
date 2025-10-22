@@ -31,6 +31,9 @@ class Model {
   VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const;
   std::vector<char> Dump() const;
   bool Load(const std::vector<char>& input);
+  double PredictEx(const VectorXd& x, VectorXd& y, MatrixXd& cov) const;
+  VectorXd BatchPredictEx(const MatrixXd& X, MatrixXd& Y, MatrixXd& COV) const;
+  VectorXd FastPredictEx(const MatrixXd& X, MatrixXd& Y, MatrixXd& COV) const;
 
  private:
   void* p;

@@ -23,15 +23,15 @@ namespace aha {
 
 using Eigen::DiagonalMatrix;
 using Eigen::Dynamic;
+using Eigen::Infinity;
 using Eigen::LLT;
 using Eigen::Lower;
 using Eigen::Map;
 using Eigen::MatrixXd;
 using Eigen::MatrixXf;
+using Eigen::Success;
 using Eigen::VectorXd;
 using Eigen::VectorXf;
-using Eigen::Infinity;
-using Eigen::Success;
 
 using json = nlohmann::ordered_json;
 
@@ -330,6 +330,106 @@ class mix {
     Y.setZero();
     for (int i = 0; i < rank; i++) {
       Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+    }
+    return sum.array().log() + wmax.array();
+  }
+
+  // 计算条件期望和条件协方差
+  double PredictEx(const VectorXd& x, VectorXd& y, MatrixXd& cov) const {
+    assert((int)x.size() <= dim);
+    std::vector<VectorXd> v(rank);
+    VectorXd w(rank);
+    for (int i = 0; i < rank; i++) {
+      w[i] = cores[i].Predict(x, v[i]);
+    }
+    double wmax = w.maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      w[i] = weights[i] * exp(w[i] - wmax);
+    }
+    double sum = w.sum();
+    y.resize(dim - x.size());
+    y.setZero();
+    for (int i = 0; i < rank; i++) {
+      y += (w[i] / sum) * v[i];
+    }
+    // 计算条件协方差
+    cov.resize(y.size(), y.size());
+    cov.setZero();
+    for (int i = 0; i < rank; i++) {
+      auto L = cores[i].getl().bottomRightCorner(y.size(), y.size());
+      auto _v = v[i] - y;
+      cov += (w[i] / sum) * (L * L.transpose());
+      cov += (w[i] / sum) * (_v * _v.transpose());
+    }
+    return log(sum) + wmax;
+  }
+
+  // 批量计算条件期望和条件协方差
+  VectorXd BatchPredictEx(const MatrixXd& X, MatrixXd& Y, MatrixXd& COV) const {
+    assert((int)X.rows() <= dim);
+    std::vector<MatrixXd> V(rank);
+    MatrixXd W(X.cols(), rank);
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = cores[i].BatchPredict(X, V[i]);
+    }
+    VectorXd wmax = W.rowwise().maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
+    }
+    VectorXd sum = W.rowwise().sum();
+    W = W.array().colwise() / sum.array();
+    Y.resize(dim - X.rows(), X.cols());
+    Y.setZero();
+    for (int i = 0; i < rank; i++) {
+      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+    }
+    // 计算条件协方差
+    COV.resize(Y.rows(), Y.rows() * Y.cols());
+    COV.setZero();
+    for (int i = 0; i < rank; i++) {
+      auto L = cores[i].getl().bottomRightCorner(Y.rows(), Y.rows());
+      auto C = L * L.transpose();
+      for (int j = 0; j < Y.cols(); j++) {
+        auto _COV = COV.middleCols(COV.rows() * j, COV.rows());
+        auto _V = V[i].col(j) - Y.col(j);
+        _COV += W(j, i) * C;
+        _COV += W(j, i) * (_V * _V.transpose());
+      }
+    }
+    return sum.array().log() + wmax.array();
+  }
+
+  // 批量快速计算条件期望和条件协方差
+  VectorXd FastPredictEx(const MatrixXd& X, MatrixXd& Y, MatrixXd& COV) const {
+    assert((int)X.rows() <= dim);
+    std::vector<MatrixXd> V(rank);
+    MatrixXd W(X.cols(), rank);
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = cores[i].FastPredict(X, V[i]);
+    }
+    VectorXd wmax = W.rowwise().maxCoeff();
+    for (int i = 0; i < rank; i++) {
+      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
+    }
+    VectorXd sum = W.rowwise().sum();
+    W = W.array().colwise() / sum.array();
+    Y.resize(dim - X.rows(), X.cols());
+    Y.setZero();
+    for (int i = 0; i < rank; i++) {
+      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+    }
+    // 计算条件协方差
+    COV.resize(Y.rows(), Y.rows() * Y.cols());
+    COV.setZero();
+    for (int i = 0; i < rank; i++) {
+      auto L = cores[i].getl().bottomRightCorner(Y.rows(), Y.rows());
+      auto C = L * L.transpose();
+      for (int j = 0; j < Y.cols(); j++) {
+        auto _COV = COV.middleCols(COV.rows() * j, COV.rows());
+        auto _V = V[i].col(j) - Y.col(j);
+        _COV += W(j, i) * C;
+        _COV += W(j, i) * (_V * _V.transpose());
+      }
     }
     return sum.array().log() + wmax.array();
   }
