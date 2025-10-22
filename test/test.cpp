@@ -839,6 +839,163 @@ int TestPredicts() {
   return 0;
 }
 
+// 测试GMM条件协方差估计
+int TestPredictEx() {
+  // 生成训练数据
+  int N = 1000000;
+  Random rand((uint32_t)std::time(0));
+  MatrixXd data(3, N);
+
+  for (int i = 0; i < N; i++) {
+    double w = rand.rand();
+    double a = rand.randNorm(0, 1);
+    double b = rand.randNorm(0, 1);
+    double c = rand.randNorm(0, 1);
+    if (w < 0.2) {
+      data(0, i) = a;
+      data(1, i) = a + 2.0 * b + 10.0;
+      data(2, i) = a + 3.0 * c + 20.0;
+    } else if (w < 0.5) {
+      data(0, i) = a;
+      data(1, i) = a + 2.0 * b + 10.0;
+      data(2, i) = a - 3.0 * c - 20.0;
+    } else {
+      data(0, i) = a;
+      data(1, i) = a - 2.0 * b - 10.0;
+      data(2, i) = a - 3.0 * c - 20.0;
+    }
+  }
+
+  // 训练模型
+  Model m(3, 3);
+  Trainer t(m);
+  for (int k = 0; k < 30; k++) {
+    t.Reset();
+    for (int i = 0; i < N; i += 250) {
+      t.FastTrain(data.middleCols(i, 250));
+    }
+    double e = t.Update();
+    std::cout << e << std::endl;
+  }
+  m.Sort();
+  std::cout << m.Export() << std::endl;
+
+  // 计算条件均值和条件方差
+  VectorXd x(1);
+  x(0) = -1.0;
+  VectorXd y(2);
+  MatrixXd cov;
+  m.PredictEx(x, y, cov);
+  std::cout << "\nCalulate:\n" << y << std::endl;
+  std::cout << "\n" << cov << std::endl;
+
+  // 检验条件均值和条件方差
+  VectorXd mean = VectorXd::Zero(2);
+  MatrixXd covar = MatrixXd::Zero(2, 2);
+  for (int i = 0; i < N; i++) {
+    double w = rand.rand();
+    double a = x(0);
+    double b = rand.randNorm(0, 1);
+    double c = rand.randNorm(0, 1);
+    if (w < 0.2) {
+      data(0, i) = a;
+      data(1, i) = a + 2.0 * b + 10.0;
+      data(2, i) = a + 3.0 * c + 20.0;
+    } else if (w < 0.5) {
+      data(0, i) = a;
+      data(1, i) = a + 2.0 * b + 10.0;
+      data(2, i) = a - 3.0 * c - 20.0;
+    } else {
+      data(0, i) = a;
+      data(1, i) = a - 2.0 * b - 10.0;
+      data(2, i) = a - 3.0 * c - 20.0;
+    }
+    auto v = data.col(i).tail(2);
+    mean += v;
+    covar += v * v.transpose();
+  }
+  mean /= N;
+  covar = covar / N - mean * mean.transpose();
+  std::cout << "Verify:\n" << mean << std::endl;
+  std::cout << "\n" << covar << std::endl;
+
+  return 0;
+}
+
+// 测试GMM条件协方差批量估计
+int TestBatchPredictEx() {
+  // 生成训练数据
+  int N = 1000000;
+  Random rand((uint32_t)std::time(0));
+  MatrixXd data(3, N);
+
+  for (int i = 0; i < N; i++) {
+    double w = rand.rand();
+    double a = rand.randNorm(0, 1);
+    double b = rand.randNorm(0, 1);
+    double c = rand.randNorm(0, 1);
+    if (w < 0.2) {
+      data(0, i) = a;
+      data(1, i) = a + 2.0 * b + 10.0;
+      data(2, i) = a + 3.0 * c + 20.0;
+    } else if (w < 0.5) {
+      data(0, i) = a;
+      data(1, i) = a + 2.0 * b + 10.0;
+      data(2, i) = a - 3.0 * c - 20.0;
+    } else {
+      data(0, i) = a;
+      data(1, i) = a - 2.0 * b - 10.0;
+      data(2, i) = a - 3.0 * c - 20.0;
+    }
+  }
+
+  // 训练模型
+  Model m(3, 3);
+  Trainer t(m);
+  for (int k = 0; k < 30; k++) {
+    t.Reset();
+    for (int i = 0; i < N; i += 250) {
+      t.FastTrain(data.middleCols(i, 250));
+    }
+    double e = t.Update();
+    std::cout << e << std::endl;
+  }
+  m.Sort();
+  std::cout << m.Export() << std::endl;
+
+  // 单步计算条件均值和条件方差
+  int M = 10000;
+  MatrixXd Y(2, M);
+  MatrixXd C(2, 2 * M);
+  VectorXd y(2);
+  MatrixXd c(2, 2);
+  Timer t_single("Single");
+  t_single.start();
+  for (int i = 0; i < 10000; i++) {
+    m.PredictEx(data.col(i).head(1), y, c);
+    Y.col(i) = y;
+    C.middleCols(i * 2, 2) = c;
+  }
+  t_single.stop();
+
+  // 批量计算条件均值和条件方差
+  MatrixXd _Y(2, 250);
+  MatrixXd _C(2, 2 * 250);
+  Timer t_batch("Batch");
+  t_batch.start();
+  for (int i = 0; i < 10000; i += 250) {
+    // m.BatchPredictEx(data.middleCols(i, 250).topRows(1), _Y, _C);
+    m.FastPredictEx(data.middleCols(i, 250).topRows(1), _Y, _C);
+    Y.middleCols(i, 250) -= _Y;
+    C.middleCols(i * 2, 250 * 2) -= _C;
+  }
+  t_batch.stop();
+
+  std::cout << "Error = " << Y.lpNorm<Infinity>() << " " << C.lpNorm<Infinity>()
+            << std::endl;
+  return 0;
+}
+
 int main() {
   // TestGaussian();
   // TestRand();
@@ -852,6 +1009,8 @@ int main() {
   // DebugPredict();
   // DebugTrain();
   // TestPredicts();
+  // TestPredictEx();
+  // TestBatchPredictEx();
 
   std::cout << "Aha version " << aha::Version() << std::endl;
 
