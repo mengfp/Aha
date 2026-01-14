@@ -445,11 +445,11 @@ class mix {
     j["w"] = weights;
     j["c"] = {};
     for (int i = 0; i < rank; i++) {
-      auto& u = cores[i].getu();
-      auto& l = cores[i].getl();
-      MatrixXd s = l * l.transpose();
-      std::vector<double> mu(u.data(), u.data() + u.size());
-      std::vector<double> sigma(s.data(), s.data() + s.size());
+      std::vector<double> mu(dim);
+      Map<VectorXd>(mu.data(), dim) = cores[i].getu();
+      std::vector<double> sigma(dim * dim);
+      Map<MatrixXd>(sigma.data(), dim, dim) =
+        cores[i].getl() * cores[i].getl().transpose();
       j["c"].push_back({{"u", mu}, {"s", sigma}});
     }
     return j.dump();
@@ -518,22 +518,25 @@ class mix {
     }
     const int magic = MAGIC;
     const int version = parse_version(VERSION);
-    std::vector<char> output;
-    output.insert(output.end(), (char*)&magic, (char*)(&magic + 1));
-    output.insert(output.end(), (char*)&version, (char*)(&version + 1));
-    output.insert(output.end(), (char*)&rank, (char*)(&rank + 1));
-    output.insert(output.end(), (char*)&dim, (char*)(&dim + 1));
-    output.insert(output.end(),
-                  (char*)weights.data(),
-                  (char*)(weights.data() + weights.size()));
+    int size = sizeof(int) * 4 + sizeof(double) * rank * (1 + dim + dim * dim);
+    std::vector<char> output(size);
+    char* p = output.data();
+    *(int*)p = magic;
+    p += sizeof(int);
+    *(int*)p = version;
+    p += sizeof(int);
+    *(int*)p = rank;
+    p += sizeof(int);
+    *(int*)p = dim;
+    p += sizeof(int);
+    memcpy(p, weights.data(), sizeof(double) * rank);
+    p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      auto& u = cores[i].getu();
-      auto& l = cores[i].getl();
-      MatrixXd s = l * l.transpose();
-      output.insert(
-        output.end(), (char*)u.data(), (char*)(u.data() + u.size()));
-      output.insert(
-        output.end(), (char*)s.data(), (char*)(s.data() + s.size()));
+      Map<VectorXd>((double*)p, dim) = cores[i].getu();
+      p += sizeof(double) * dim;
+      Map<MatrixXd>((double*)p, dim, dim) =
+        cores[i].getl() * cores[i].getl().transpose();
+      p += sizeof(double) * dim * dim;
     }
     return output;
   }
@@ -698,9 +701,11 @@ class trainer {
     j["m"] = {};
     j["c"] = {};
     for (int i = 0; i < rank; i++) {
-      std::vector<double> m(means[i].data(), means[i].data() + means[i].size());
+      std::vector<double> m(dim);
+      Map<VectorXd>(m.data(), dim) = means[i];
       j["m"].push_back(m);
-      std::vector<double> c(covs[i].data(), covs[i].data() + covs[i].size());
+      std::vector<double> c(dim * dim);
+      Map<MatrixXd>(c.data(), dim, dim) = covs[i];
       j["c"].push_back(c);
     }
     return j.dump();
@@ -803,20 +808,23 @@ class trainer {
 
   // 以二进制导出训练结果
   std::vector<char> Dump() const {
-    std::vector<char> output;
-    output.insert(output.end(), (char*)&rank, (char*)(&rank + 1));
-    output.insert(output.end(), (char*)&dim, (char*)(&dim + 1));
-    output.insert(output.end(), (char*)&entropy, (char*)(&entropy + 1));
-    output.insert(output.end(),
-                  (char*)weights.data(),
-                  (char*)(weights.data() + weights.size()));
+    int size = sizeof(int) * 2 + sizeof(double) +
+               sizeof(double) * rank * (1 + dim + dim * dim);
+    std::vector<char> output(size);
+    char* p = output.data();
+    *(int*)p = rank;
+    p += sizeof(int);
+    *(int*)p = dim;
+    p += sizeof(int);
+    *(double*)p = entropy;
+    p += sizeof(double);
+    memcpy(p, weights.data(), sizeof(double) * rank);
+    p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      output.insert(output.end(),
-                    (char*)means[i].data(),
-                    (char*)(means[i].data() + means[i].size()));
-      output.insert(output.end(),
-                    (char*)covs[i].data(),
-                    (char*)(covs[i].data() + covs[i].size()));
+      Map<VectorXd>((double*)p, dim) = means[i];
+      p += sizeof(double) * dim;
+      Map<MatrixXd>((double*)p, dim, dim) = covs[i];
+      p += sizeof(double) * dim * dim;
     }
     return output;
   }

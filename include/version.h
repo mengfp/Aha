@@ -4,7 +4,7 @@
 #ifndef AHA_VERSION_H
 #define AHA_VERSION_H
 
-#define VERSION "1.2.0"
+#define VERSION "1.2.1"
 
 #define MAGIC 0x0ebf76da
 
