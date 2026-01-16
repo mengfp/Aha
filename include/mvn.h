@@ -235,6 +235,7 @@ class mix {
     return log(sum) + wmax;
   }
 
+  #if 0
   // 批量计算对数概率密度和分类权重
   VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
@@ -251,6 +252,36 @@ class mix {
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
+  #else
+    VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
+    // 1. 获取 Log-PDF 矩阵（确保 mvn 内部用了 solveInPlace 和 workspace）
+    // 并在 mvn 内部直接把 log(weights[i]) 加进去
+    for (int i = 0; i < rank; i++) {
+      // 1. 先把 PDF 算进 W 的对应列中（直接利用目标内存）
+      W.col(i).noalias() = cores[i].BatchEvaluate(X);
+
+      // 2. 原地加上对数权重
+      // .array() 转换不会产生拷贝，只是改变了查看内存的方式
+      W.col(i).array() += log(weights[i]);
+    }
+
+    // 2. 此时 W 已经是加权后的对数概率
+    // 计算每一行的最大值，用于 Log-Sum-Exp 技巧
+    VectorXd wmax = W.rowwise().maxCoeff();
+
+    // 3. 这里的组合操作是性能关键
+    // 重点：利用 Eigen 的表达式合并，减少对 W 的扫描次数
+    // 这行代码会触发 Eigen 的向量化优化，在一个循环内完成减法和 exp
+    W = (W.colwise() - wmax).array().exp();
+
+    // 4. 归一化
+    VectorXd sum = W.rowwise().sum();
+    W.array().colwise() /= sum.array();
+
+    // 5. 返回总对数似然
+    return sum.array().log() + wmax.array();
+  }
+#endif
 
   // 快速批量计算对数概率密度和分类权重
   VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
@@ -365,7 +396,9 @@ class mix {
   }
 
   // 批量计算条件期望和条件协方差
-  VectorXd BatchPredictEx(const MatrixXdRef& X, MatrixXd& Y, MatrixXd& COV) const {
+  VectorXd BatchPredictEx(const MatrixXdRef& X,
+                          MatrixXd& Y,
+                          MatrixXd& COV) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -400,7 +433,9 @@ class mix {
   }
 
   // 批量快速计算条件期望和条件协方差
-  VectorXd FastPredictEx(const MatrixXdRef& X, MatrixXd& Y, MatrixXd& COV) const {
+  VectorXd FastPredictEx(const MatrixXdRef& X,
+                         MatrixXd& Y,
+                         MatrixXd& COV) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -628,6 +663,7 @@ class trainer {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
+#if 1
       for (int i = 0; i < rank; i++) {
         weights[i] += W.col(i).sum();
         means[i] += samples * W.col(i);
@@ -637,6 +673,48 @@ class trainer {
         quadric.selfadjointView<Lower>().rankUpdate(m);
         covs[i] += quadric.selfadjointView<Lower>();
       }
+#else
+      // 优化后的逻辑
+      for (int i = 0; i < rank; i++) {
+        // 1. 直接更新 weights
+        weights[i] += W.col(i).sum();
+
+        // 2. 直接更新 means (samples * W.col(i) 是一个 Gemv 操作，非常快)
+        means[i].noalias() += samples * W.col(i);
+
+        // 3. 核心：利用 DiagonalWrapper 避免创建矩阵 m
+        // 这相当于计算 samples * diag(sqrt(W)) * diag(sqrt(W)) * samples^T
+        // 也就是 samples * diag(W) * samples^T
+        covs[i].selfadjointView<Lower>().rankUpdate(
+          samples * W.col(i).array().sqrt().matrix().asDiagonal());
+      }
+#endif
+
+#if 0
+      // 在 trainer 的循环中
+    for (int i = 0; i < rank; i++) {
+        // 1. weights 和 means 的更新保持原样（Gemv 很快）
+        weights[i] += W.col(i).sum();
+        means[i].noalias() += samples * W.col(i);
+
+        // 2. 关键：直接将权重作用于 rankUpdate，避免 sqrt 和中间矩阵 m
+        // 使用 DiagonalWrapper 告诉 Eigen 这是一个对角缩放操作
+        // 注意：不要在循环里创建 quadric，直接操作目标 covs[i]
+        covs[i].selfadjointView<Lower>().rankUpdate(samples, W.col(i).asDiagonal(), 1.0);
+    }
+#endif
+#if 0
+    for (int i = 0; i < rank; i++) {
+    // 更新权重和均值
+    weights[i] += W.col(i).sum();
+    means[i].noalias() += samples * W.col(i);
+
+    // 关键优化：直接作用于 covs[i]，利用 asDiagonal 避免开方和临时矩阵
+    // 语法：matrix.rankUpdate(samples, weights_vector, alpha)
+    // 它计算的是：covs[i] += alpha * samples * diag(weights_vector) * samples^T
+        covs[i].selfadjointView<Lower>().rankUpdate(samples, W.col(i), 1.0);
+}
+#endif
     } else {
       MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
       quadric.selfadjointView<Lower>().rankUpdate(samples);
