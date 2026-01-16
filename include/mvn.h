@@ -235,6 +235,7 @@ class mix {
     return log(sum) + wmax;
   }
 
+  // 批量计算对数概率密度和分类权重
   VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
