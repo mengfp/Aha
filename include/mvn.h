@@ -45,7 +45,7 @@ class mvn {
   }
 
   // 构造函数
-  mvn(const VectorXd& mu, const MatrixXd& sigma) {
+  mvn(const VectorXdRef& mu, const MatrixXdRef& sigma) {
     Initialize(mu, sigma);
   }
 
@@ -55,7 +55,7 @@ class mvn {
   }
 
   // 初始化，Cholesky分解
-  void Initialize(const VectorXd& mu, const MatrixXd& sigma) {
+  void Initialize(const VectorXdRef& mu, const MatrixXdRef& sigma) {
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
     auto llt = LLT<MatrixXd>(sigma.selfadjointView<Lower>());
@@ -71,7 +71,7 @@ class mvn {
   }
 
   // 计算对数概率密度
-  double Evaluate(const VectorXd& x) const {
+  double Evaluate(const VectorXdRef& x) const {
     assert(x.size() == u.size());
     auto n = u.size();
     return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
@@ -79,7 +79,7 @@ class mvn {
   }
 
   // 批量计算对数概率密度
-  VectorXd BatchEvaluate(const MatrixXd& X) const {
+  VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
     auto n = u.size();
     return -0.5 * (l.triangularView<Lower>()
@@ -91,7 +91,7 @@ class mvn {
   }
 
   // 快速批量计算对数概率密度
-  VectorXd FastEvaluate(const MatrixXd& X) const {
+  VectorXd FastEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
     auto n = u.size();
     auto _u = u.cast<float>();
@@ -106,7 +106,7 @@ class mvn {
   }
 
   // 计算对数边缘概率密度
-  double PartialEvaluate(const VectorXd& x) const {
+  double PartialEvaluate(const VectorXdRef& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
     return -0.5 * (l.topLeftCorner(k, k)
@@ -117,7 +117,7 @@ class mvn {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const VectorXd& x, VectorXd& y) const {
+  double Predict(const VectorXdRef& x, VectorXd& y) const {
     assert(x.size() <= u.size());
     auto n = u.size();
     auto k = x.size();
@@ -129,7 +129,7 @@ class mvn {
   }
 
   // 批量计算对数边缘概率密度和条件期望
-  VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const {
+  VectorXd BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
     assert(X.rows() <= u.size());
     auto n = u.size();
     auto k = X.rows();
@@ -142,7 +142,7 @@ class mvn {
   }
 
   // 快速计算对数边缘概率密度和条件期望
-  VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const {
+  VectorXd FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
     assert(X.rows() <= u.size());
     auto n = u.size();
     auto k = X.rows();
@@ -220,7 +220,7 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double Evaluate(const VectorXd& x, VectorXd& w) const {
+  double Evaluate(const VectorXdRef& x, VectorXd& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
     for (int i = 0; i < rank; i++) {
@@ -236,7 +236,7 @@ class mix {
   }
 
   // 批量计算对数概率密度和分类权重
-  VectorXd BatchEvaluate(const MatrixXd& X, MatrixXd& W) const {
+  VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
@@ -253,7 +253,7 @@ class mix {
   }
 
   // 快速批量计算对数概率密度和分类权重
-  VectorXd FastEvaluate(const MatrixXd& X, MatrixXd& W) const {
+  VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
@@ -270,7 +270,7 @@ class mix {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const VectorXd& x, VectorXd& y) const {
+  double Predict(const VectorXdRef& x, VectorXd& y) const {
     assert((int)x.size() <= dim);
     std::vector<VectorXd> v(rank);
     VectorXd w(rank);
@@ -291,7 +291,7 @@ class mix {
   }
 
   // 批量计算对数边缘概率密度和条件期望
-  VectorXd BatchPredict(const MatrixXd& X, MatrixXd& Y) const {
+  VectorXd BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -313,7 +313,7 @@ class mix {
   }
 
   // 快速计算对数边缘概率密度和条件期望
-  VectorXd FastPredict(const MatrixXd& X, MatrixXd& Y) const {
+  VectorXd FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -335,7 +335,7 @@ class mix {
   }
 
   // 计算条件期望和条件协方差
-  double PredictEx(const VectorXd& x, VectorXd& y, MatrixXd& cov) const {
+  double PredictEx(const VectorXdRef& x, VectorXd& y, MatrixXd& cov) const {
     assert((int)x.size() <= dim);
     std::vector<VectorXd> v(rank);
     VectorXd w(rank);
@@ -365,7 +365,7 @@ class mix {
   }
 
   // 批量计算条件期望和条件协方差
-  VectorXd BatchPredictEx(const MatrixXd& X, MatrixXd& Y, MatrixXd& COV) const {
+  VectorXd BatchPredictEx(const MatrixXdRef& X, MatrixXd& Y, MatrixXd& COV) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -400,7 +400,7 @@ class mix {
   }
 
   // 批量快速计算条件期望和条件协方差
-  VectorXd FastPredictEx(const MatrixXd& X, MatrixXd& Y, MatrixXd& COV) const {
+  VectorXd FastPredictEx(const MatrixXdRef& X, MatrixXd& Y, MatrixXd& COV) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -603,7 +603,7 @@ class trainer {
   }
 
   // 添加一个样本
-  void Train(const VectorXd& sample) {
+  void Train(const VectorXdRef& sample) {
     if (m.Initialized()) {
       VectorXd temp = VectorXd::Zero(rank);
       entropy -= m.Evaluate(sample, temp);
@@ -624,7 +624,7 @@ class trainer {
   }
 
   // 批量添加样本
-  void BatchTrain(const MatrixXd& samples) {
+  void BatchTrain(const MatrixXdRef& samples) {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -649,7 +649,7 @@ class trainer {
   }
 
   // 快速批量添加样本
-  void FastTrain(const MatrixXd& samples) {
+  void FastTrain(const MatrixXdRef& samples) {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
