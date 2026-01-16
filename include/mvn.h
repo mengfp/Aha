@@ -235,53 +235,20 @@ class mix {
     return log(sum) + wmax;
   }
 
-#if 0
-  // 批量计算对数概率密度和分类权重
   VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchEvaluate(X);
-    }
-    VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
-    VectorXd sum = W.rowwise().sum();
-    W.array().colwise() /= sum.array();
-    return sum.array().log() + wmax.array();
-  }
-#else
-  VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
-    // 1. 获取 Log-PDF 矩阵（确保 mvn 内部用了 solveInPlace 和 workspace）
-    // 并在 mvn 内部直接把 log(weights[i]) 加进去
-    for (int i = 0; i < rank; i++) {
-      // 1. 先把 PDF 算进 W 的对应列中（直接利用目标内存）
       W.col(i).noalias() = cores[i].BatchEvaluate(X);
-
-      // 2. 原地加上对数权重
-      // .array() 转换不会产生拷贝，只是改变了查看内存的方式
       W.col(i).array() += log(weights[i]);
     }
-
-    // 2. 此时 W 已经是加权后的对数概率
-    // 计算每一行的最大值，用于 Log-Sum-Exp 技巧
     VectorXd wmax = W.rowwise().maxCoeff();
-
-    // 3. 这里的组合操作是性能关键
-    // 重点：利用 Eigen 的表达式合并，减少对 W 的扫描次数
-    // 这行代码会触发 Eigen 的向量化优化，在一个循环内完成减法和 exp
     W = (W.colwise() - wmax).array().exp();
-
-    // 4. 归一化
     VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
-
-    // 5. 返回总对数似然
     return sum.array().log() + wmax.array();
   }
-#endif
 
   // 快速批量计算对数概率密度和分类权重
   VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
@@ -663,37 +630,13 @@ class trainer {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
-#if 1
       for (int i = 0; i < rank; i++) {
         weights[i] += W.col(i).sum();
         means[i] += samples * W.col(i);
-
-        // MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-        // MatrixXd m =
-        //   samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        // quadric.selfadjointView<Lower>().rankUpdate(m);
-        // covs[i] += quadric.selfadjointView<Lower>();
-
         MatrixXd m =
           samples.array().rowwise() * W.col(i).transpose().array().sqrt();
         covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
-#else
-      // 优化后的逻辑
-      for (int i = 0; i < rank; i++) {
-        // 1. 直接更新 weights
-        weights[i] += W.col(i).sum();
-
-        // 2. 直接更新 means (samples * W.col(i) 是一个 Gemv 操作，非常快)
-        means[i].noalias() += samples * W.col(i);
-
-        // 3. 核心：利用 DiagonalWrapper 避免创建矩阵 m
-        // 这相当于计算 samples * diag(sqrt(W)) * diag(sqrt(W)) * samples^T
-        // 也就是 samples * diag(W) * samples^T
-        covs[i].selfadjointView<Lower>().rankUpdate(
-          samples * W.col(i).array().sqrt().matrix().asDiagonal());
-      }
-#endif
     } else {
       MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
       quadric.selfadjointView<Lower>().rankUpdate(samples);
