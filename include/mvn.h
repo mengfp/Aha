@@ -79,7 +79,7 @@ class mvn {
   }
 
   // 批量计算对数概率密度
-  VectorXd __BatchEvaluate(const MatrixXdRef& X) const {
+  VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
     auto n = u.size();
     return -0.5 * (l.triangularView<Lower>()
@@ -88,28 +88,6 @@ class mvn {
                      .squaredNorm()
                      .array() +
                    n * log(2 * M_PI) + d(n - 1));
-  }
-
-  VectorXd BatchEvaluate(const MatrixXdRef& X) const {
-    const auto n = u.size();
-    const auto N = X.cols();  // 样本数
-
-    // 1. 预先申请一个结果向量（只申请一次，且是必要的）
-    VectorXd scores(N);
-
-    // 2. 避免 solve 产生临时矩阵的关键：
-    // 我们需要一个临时矩阵来存储 solve 的结果，但我们可以复用它
-    // 或者利用 Eigen 优化后的表达式。
-    // 这里最快的方法通常是先做中心化，再 solve
-    MatrixXd centered = X.colwise() - u;
-    l.triangularView<Lower>().solveInPlace(centered);
-
-    // 3. 计算每一列的平方和
-    scores = centered.colwise().squaredNorm();
-
-    // 4. 合并常量计算
-    const double log_const = n * log(2 * M_PI) + d(n - 1);
-    return -0.5 * (scores.array() + log_const);
   }
 
   // 快速批量计算对数概率密度
