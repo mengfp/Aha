@@ -235,7 +235,7 @@ class mix {
     return log(sum) + wmax;
   }
 
-  #if 0
+#if 0
   // 批量计算对数概率密度和分类权重
   VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
@@ -252,8 +252,8 @@ class mix {
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
-  #else
-    VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
+#else
+  VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     // 1. 获取 Log-PDF 矩阵（确保 mvn 内部用了 solveInPlace 和 workspace）
     // 并在 mvn 内部直接把 log(weights[i]) 加进去
     for (int i = 0; i < rank; i++) {
@@ -667,11 +667,16 @@ class trainer {
       for (int i = 0; i < rank; i++) {
         weights[i] += W.col(i).sum();
         means[i] += samples * W.col(i);
-        MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
+
+        // MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
+        // MatrixXd m =
+        //   samples.array().rowwise() * W.col(i).transpose().array().sqrt();
+        // quadric.selfadjointView<Lower>().rankUpdate(m);
+        // covs[i] += quadric.selfadjointView<Lower>();
+
         MatrixXd m =
           samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        quadric.selfadjointView<Lower>().rankUpdate(m);
-        covs[i] += quadric.selfadjointView<Lower>();
+        covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
 #else
       // 优化后的逻辑
@@ -688,32 +693,6 @@ class trainer {
         covs[i].selfadjointView<Lower>().rankUpdate(
           samples * W.col(i).array().sqrt().matrix().asDiagonal());
       }
-#endif
-
-#if 0
-      // 在 trainer 的循环中
-    for (int i = 0; i < rank; i++) {
-        // 1. weights 和 means 的更新保持原样（Gemv 很快）
-        weights[i] += W.col(i).sum();
-        means[i].noalias() += samples * W.col(i);
-
-        // 2. 关键：直接将权重作用于 rankUpdate，避免 sqrt 和中间矩阵 m
-        // 使用 DiagonalWrapper 告诉 Eigen 这是一个对角缩放操作
-        // 注意：不要在循环里创建 quadric，直接操作目标 covs[i]
-        covs[i].selfadjointView<Lower>().rankUpdate(samples, W.col(i).asDiagonal(), 1.0);
-    }
-#endif
-#if 0
-    for (int i = 0; i < rank; i++) {
-    // 更新权重和均值
-    weights[i] += W.col(i).sum();
-    means[i].noalias() += samples * W.col(i);
-
-    // 关键优化：直接作用于 covs[i]，利用 asDiagonal 避免开方和临时矩阵
-    // 语法：matrix.rankUpdate(samples, weights_vector, alpha)
-    // 它计算的是：covs[i] += alpha * samples * diag(weights_vector) * samples^T
-        covs[i].selfadjointView<Lower>().rankUpdate(samples, W.col(i), 1.0);
-}
 #endif
     } else {
       MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
