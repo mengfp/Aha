@@ -652,7 +652,7 @@ class trainer {
   void BatchTrain(const MatrixXdRef& samples) {
     const Eigen::Index N = samples.cols();
     const Eigen::Index D = samples.rows();
-    const Eigen::Index blocksize = 16;  // 你验证出的 L1 缓存黄金分割点
+    const Eigen::Index blocksize = 32;  // 你验证出的 L1 缓存黄金分割点
 
     // --- 1. 预分配工作空间 (Workspace)，彻底避免循环内 malloc ---
     // W_buffer 用于存储 BatchEvaluate 的似然权重
