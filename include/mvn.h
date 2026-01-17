@@ -672,25 +672,53 @@ class trainer {
         auto W = W_buffer.topRows(cur_B);
         entropy -= m.BatchEvaluate(block, W).sum();
 
-        // --- 绝杀 1: 预计算 sqrt，Workspace 复用 (定义在循环外) ---
         auto W_sqrt = W_sqrt_buffer.topRows(cur_B);
         W_sqrt.array() = W.array().sqrt();
 
         for (int k = 0; k < rank; k++) {
+          // 1. 权重累加（最快，寄存器操作）
           weights[k] += W.col(k).sum();
 
-          // --- 绝杀 2: 显式优化均值更新 ---
-          means[k].noalias() += block.lazyProduct(W.col(k));
-
+          // 2. 这里的计算顺序很关键！
           auto tmp = tmp_buffer.leftCols(cur_B);
-          // 直接乘预算好的 sqrt，彻底消灭循环内 sqrt 调用
-          tmp.noalias() =
-            (block.array().rowwise() * W_sqrt.col(k).transpose().array())
-              .matrix();
+          auto W_col_k_sqrt = W_sqrt.col(k).transpose().array();
 
+          // 核心：在计算 tmp 的同时，其实已经完成了 block 的行遍历
+          // 尝试让编译器将这两步操作的指令交织在一起
+          tmp.noalias() = (block.array().rowwise() * W_col_k_sqrt).matrix();
+
+          // 协方差更新（这是最重的计算）
           covs[k].selfadjointView<Lower>().rankUpdate(tmp);
+
+          // 均值更新：如果你的 rank 不大，这一行放在 rankUpdate 后面或前面
+          // 可能会触发不同的 CPU 流水线重排
+          means[k].noalias() += block * W.col(k);
         }
       }
+
+      // if (m.Initialized()) {
+      //   auto W = W_buffer.topRows(cur_B);
+      //   entropy -= m.BatchEvaluate(block, W).sum();
+
+      //  // --- 绝杀 1: 预计算 sqrt，Workspace 复用 (定义在循环外) ---
+      //  auto W_sqrt = W_sqrt_buffer.topRows(cur_B);
+      //  W_sqrt.array() = W.array().sqrt();
+
+      //  for (int k = 0; k < rank; k++) {
+      //    weights[k] += W.col(k).sum();
+
+      //    // --- 绝杀 2: 显式优化均值更新 ---
+      //    means[k].noalias() += block.lazyProduct(W.col(k));
+
+      //    auto tmp = tmp_buffer.leftCols(cur_B);
+      //    // 直接乘预算好的 sqrt，彻底消灭循环内 sqrt 调用
+      //    tmp.noalias() =
+      //      (block.array().rowwise() * W_sqrt.col(k).transpose().array())
+      //        .matrix();
+
+      //    covs[k].selfadjointView<Lower>().rankUpdate(tmp);
+      //  }
+      //}
 
       // if (m.Initialized()) {
       //   // --- 分支 A: 增量训练 (EM 步) ---
