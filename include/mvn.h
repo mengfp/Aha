@@ -649,19 +649,24 @@ class trainer {
     }
   }
 
+  using MatrixAligned = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::AutoAlign | Eigen::ColMajor>;
+
   void BatchTrain(const MatrixXdRef& samples) {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+
     const Eigen::Index N = samples.cols();
     const Eigen::Index D = samples.rows();
     const Eigen::Index blocksize = 32;  // 你验证出的 L1 缓存黄金分割点
 
     // --- 1. 预分配工作空间 (Workspace)，彻底避免循环内 malloc ---
     // W_buffer 用于存储 BatchEvaluate 的似然权重
-    MatrixXd W_buffer(blocksize, rank);
-    MatrixXd W_sqrt_buffer(blocksize, rank);
+    alignas(64) MatrixAligned W_buffer(blocksize, rank);
+    alignas(64) MatrixAligned W_sqrt_buffer(blocksize, rank);
     // tmp_buffer 用于 M-Step 的矩阵投影计算
-    MatrixXd tmp_buffer(D, blocksize);
+    alignas(64) MatrixAligned tmp_buffer(D, blocksize);
     // quadric_buffer 用于初始化分支的协方差累加
-    MatrixXd quadric_buffer(D, D);
+    alignas(64) MatrixAligned quadric_buffer(D, D);
 
     for (int i = 0; i < N; i += blocksize) {
       // 自动处理 N 不是 blocksize 整数倍的情况（尾部样本）
@@ -692,7 +697,8 @@ class trainer {
 
           // 均值更新：如果你的 rank 不大，这一行放在 rankUpdate 后面或前面
           // 可能会触发不同的 CPU 流水线重排
-          means[k].noalias() += block * W.col(k);
+          // means[k].noalias() += block * W.col(k);
+          means[k].noalias() += block.lazyProduct(W.col(k));
         }
       }
 
