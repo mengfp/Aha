@@ -652,11 +652,12 @@ class trainer {
   void BatchTrain(const MatrixXdRef& samples) {
     const Eigen::Index N = samples.cols();
     const Eigen::Index D = samples.rows();
-    const Eigen::Index blocksize = 50;  // 你验证出的 L1 缓存黄金分割点
+    const Eigen::Index blocksize = 16;  // 你验证出的 L1 缓存黄金分割点
 
     // --- 1. 预分配工作空间 (Workspace)，彻底避免循环内 malloc ---
     // W_buffer 用于存储 BatchEvaluate 的似然权重
     MatrixXd W_buffer(blocksize, rank);
+    MatrixXd W_sqrt_buffer(blocksize, rank);
     // tmp_buffer 用于 M-Step 的矩阵投影计算
     MatrixXd tmp_buffer(D, blocksize);
     // quadric_buffer 用于初始化分支的协方差累加
@@ -668,27 +669,55 @@ class trainer {
       auto block = samples.middleCols(i, cur_B);
 
       if (m.Initialized()) {
-        // --- 分支 A: 增量训练 (EM 步) ---
         auto W = W_buffer.topRows(cur_B);
-
-        // 似然计算直接覆盖 W，无需 setZero
         entropy -= m.BatchEvaluate(block, W).sum();
 
+        // --- 绝杀 1: 预计算 sqrt，Workspace 复用 (定义在循环外) ---
+        auto W_sqrt = W_sqrt_buffer.topRows(cur_B);
+        W_sqrt.array() = W.array().sqrt();
+
         for (int k = 0; k < rank; k++) {
-          // 1. 更新权重 (Scalar)
           weights[k] += W.col(k).sum();
 
-          // 2. 更新均值 (Matrix-Vector)
-          means[k].noalias() += block * W.col(k);
+          // --- 绝杀 2: 显式优化均值更新 ---
+          means[k].noalias() += block.lazyProduct(W.col(k));
 
-          // 3. 更新协方差 (Rank-1 Update)
-          // 先计算加权投影，结果仅 25KB，稳在 L1 Cache
           auto tmp = tmp_buffer.leftCols(cur_B);
-          tmp = (block.array().rowwise() * W.col(k).transpose().array().sqrt())
-                  .matrix();
+          // 直接乘预算好的 sqrt，彻底消灭循环内 sqrt 调用
+          tmp.noalias() =
+            (block.array().rowwise() * W_sqrt.col(k).transpose().array())
+              .matrix();
+
           covs[k].selfadjointView<Lower>().rankUpdate(tmp);
         }
-      } else {
+      }
+
+      // if (m.Initialized()) {
+      //   // --- 分支 A: 增量训练 (EM 步) ---
+      //   auto W = W_buffer.topRows(cur_B);
+
+      //  // 似然计算直接覆盖 W，无需 setZero
+      //  entropy -= m.BatchEvaluate(block, W).sum();
+
+      //  for (int k = 0; k < rank; k++) {
+      //    // 1. 更新权重 (Scalar)
+      //    weights[k] += W.col(k).sum();
+
+      //    // 2. 更新均值 (Matrix-Vector)
+      //    means[k].noalias() += block * W.col(k);
+
+      //    // 3. 更新协方差 (Rank-1 Update)
+      //    // 先计算加权投影，结果仅 25KB，稳在 L1 Cache
+      //    auto tmp = tmp_buffer.leftCols(cur_B);
+      //    tmp = (block.array().rowwise() *
+      //    W.col(k).transpose().array().sqrt())
+      //            .matrix();
+      //    covs[k].selfadjointView<Lower>().rankUpdate(tmp);
+      //  }
+      //}
+      //
+
+      else {
         // --- 分支 B: 初始化阶段 (极致优化版) ---
         // 1. 预计算当前块的协方差贡献 (只算一次)
         quadric_buffer.setZero();
