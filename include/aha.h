@@ -12,6 +12,8 @@ namespace aha {
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
+using Eigen::Map;
+using Eigen::Ref;
 using MatrixXdRef = Eigen::Ref<const Eigen::MatrixXd>;
 using VectorXdRef = Eigen::Ref<const Eigen::VectorXd>;
 

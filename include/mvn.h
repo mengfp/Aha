@@ -236,7 +236,7 @@ class mix {
   }
 
   // 批量计算对数概率密度和分类权重
-  VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
+  VectorXd BatchEvaluate(const MatrixXdRef& X, Ref<MatrixXd> W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
@@ -627,7 +627,7 @@ class trainer {
   }
 
   // 批量添加样本
-  void BatchTrain(const MatrixXdRef& samples) {
+  void __BatchTrain(const MatrixXdRef& samples) {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -645,6 +645,63 @@ class trainer {
         weights[i] += samples.cols();
         means[i] += samples.rowwise().sum();
         covs[i] += quadric.selfadjointView<Lower>();
+      }
+    }
+  }
+
+  void BatchTrain(const MatrixXdRef& samples) {
+    const Eigen::Index N = samples.cols();
+    const Eigen::Index D = samples.rows();
+    const Eigen::Index blocksize = 50;  // 你验证出的 L1 缓存黄金分割点
+
+    // --- 1. 预分配工作空间 (Workspace)，彻底避免循环内 malloc ---
+    // W_buffer 用于存储 BatchEvaluate 的似然权重
+    MatrixXd W_buffer(blocksize, rank);
+    // tmp_buffer 用于 M-Step 的矩阵投影计算
+    MatrixXd tmp_buffer(D, blocksize);
+    // quadric_buffer 用于初始化分支的协方差累加
+    MatrixXd quadric_buffer(D, D);
+
+    for (int i = 0; i < N; i += blocksize) {
+      // 自动处理 N 不是 blocksize 整数倍的情况（尾部样本）
+      auto cur_B = std::min(blocksize, N - i);
+      auto block = samples.middleCols(i, cur_B);
+
+      if (m.Initialized()) {
+        // --- 分支 A: 增量训练 (EM 步) ---
+        auto W = W_buffer.topRows(cur_B);
+
+        // 似然计算直接覆盖 W，无需 setZero
+        entropy -= m.BatchEvaluate(block, W).sum();
+
+        for (int k = 0; k < rank; k++) {
+          // 1. 更新权重 (Scalar)
+          weights[k] += W.col(k).sum();
+
+          // 2. 更新均值 (Matrix-Vector)
+          means[k].noalias() += block * W.col(k);
+
+          // 3. 更新协方差 (Rank-1 Update)
+          // 先计算加权投影，结果仅 25KB，稳在 L1 Cache
+          auto tmp = tmp_buffer.leftCols(cur_B);
+          tmp = (block.array().rowwise() * W.col(k).transpose().array().sqrt())
+                  .matrix();
+          covs[k].selfadjointView<Lower>().rankUpdate(tmp);
+        }
+      } else {
+        // --- 分支 B: 初始化阶段 (极致优化版) ---
+        // 1. 预计算当前块的协方差贡献 (只算一次)
+        quadric_buffer.setZero();
+        quadric_buffer.selfadjointView<Lower>().rankUpdate(block);
+
+        // 2. 预计算当前块的均值贡献 (只算一次)
+        VectorXd block_sum = block.rowwise().sum();
+
+        for (int k = 0; k < rank; k++) {
+          weights[k] += cur_B;
+          means[k].noalias() += block_sum;  // 直接累加预计算的结果
+          covs[k] += quadric_buffer.selfadjointView<Lower>();
+        }
       }
     }
   }
