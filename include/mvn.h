@@ -627,7 +627,7 @@ class trainer {
   }
 
   // 批量添加样本
-  void __BatchTrain(const MatrixXdRef& samples) {
+  void BatchTrain(const MatrixXdRef& samples) {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -651,7 +651,7 @@ class trainer {
 
   using MatrixAligned = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::AutoAlign | Eigen::ColMajor>;
 
-  void BatchTrain(const MatrixXdRef& samples) {
+  void __BatchTrain(const MatrixXdRef& samples) {
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
