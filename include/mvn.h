@@ -625,14 +625,10 @@ class trainer {
     }
   }
 
-
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
-    // const Eigen::Index blocksize = 150;
-    // const Eigen::Index N = samples.cols();
-    // const Eigen::Index D = samples.rows();
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -644,15 +640,13 @@ class trainer {
         covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
     } else {
-		assert(rank > 0);
-		weights[0] += samples.cols();
-		means[0] += samples.rowwise().sum();
-		covs[0].selfadjointView<Lower>().rankUpdate(samples);
-		for (int i = 1; i < rank; i++) {
-			weights[i] = weights[0];
-			means[i] = means[0];
-			covs[i] = covs[0];
-		}
+      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
+      quadric.selfadjointView<Lower>().rankUpdate(samples);
+      for (int i = 0; i < rank; i++) {
+        weights[i] += samples.cols();
+        means[i] += samples.rowwise().sum();
+        covs[i] += quadric.selfadjointView<Lower>();
+      }
     }
   }
 
