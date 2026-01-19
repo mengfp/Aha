@@ -241,8 +241,7 @@ class mix {
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i).noalias() = cores[i].BatchEvaluate(X);
-      W.col(i).array() += log(weights[i]);
+	  W.col(i) = cores[i].BatchEvaluate(X).array() + std::log(weights[i]);
     }
     VectorXd wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
