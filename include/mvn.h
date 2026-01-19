@@ -65,7 +65,7 @@ class mvn {
     d = VectorXd(mu.size());
     double c = 0;
     for (int i = 0; i < (int)mu.size(); i++) {
-      c += 2 * log(l(i, i));
+      c += 2 * std::log(l(i, i));
       d(i) = c;
     }
   }
@@ -75,7 +75,7 @@ class mvn {
     assert(x.size() == u.size());
     auto n = u.size();
     return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
-                   n * log(2 * M_PI) + d(n - 1));
+                   n * std::log(2 * M_PI) + d(n - 1));
   }
 
   // 批量计算对数概率密度
@@ -87,7 +87,7 @@ class mvn {
                      .colwise()
                      .squaredNorm()
                      .array() +
-                   n * log(2 * M_PI) + d(n - 1));
+                   n * std::log(2 * M_PI) + d(n - 1));
   }
 
   // 快速批量计算对数概率密度
@@ -102,7 +102,7 @@ class mvn {
                      .squaredNorm()
                      .array()
                      .cast<double>() +
-                   n * log(2 * M_PI) + d(n - 1));
+                   n * std::log(2 * M_PI) + d(n - 1));
   }
 
   // 计算对数边缘概率密度
@@ -113,7 +113,7 @@ class mvn {
                      .triangularView<Lower>()
                      .solve(x - u.head(k))
                      .squaredNorm() +
-                   k * log(2 * M_PI) + d(k - 1));
+                   k * std::log(2 * M_PI) + d(k - 1));
   }
 
   // 计算对数边缘概率密度和条件期望
@@ -125,7 +125,7 @@ class mvn {
     VectorXd temp =
       l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
-    return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
+    return -0.5 * (temp.squaredNorm() + k * std::log(2 * M_PI) + d(k - 1));
   }
 
   // 批量计算对数边缘概率密度和条件期望
@@ -137,7 +137,7 @@ class mvn {
     MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
       X.colwise() - u.head(k));
     Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
-    return -0.5 * (temp.colwise().squaredNorm().array() + k * log(2 * M_PI) +
+    return -0.5 * (temp.colwise().squaredNorm().array() + k * std::log(2 * M_PI) +
                    d(k - 1));
   }
 
@@ -228,11 +228,11 @@ class mix {
     }
     double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
+      w[i] = weights[i] * std::exp(w[i] - wmax);
     }
     double sum = w.sum();
     w.array() /= sum;
-    return log(sum) + wmax;
+    return std::log(sum) + wmax;
   }
 
   // 批量计算对数概率密度和分类权重
@@ -277,7 +277,7 @@ class mix {
     }
     double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
+      w[i] = weights[i] * std::exp(w[i] - wmax);
     }
     double sum = w.sum();
     y.resize(dim - x.size());
@@ -285,7 +285,7 @@ class mix {
     for (int i = 0; i < rank; i++) {
       y += (w[i] / sum) * v[i];
     }
-    return log(sum) + wmax;
+    return std::log(sum) + wmax;
   }
 
   // 批量计算对数边缘概率密度和条件期望
@@ -342,7 +342,7 @@ class mix {
     }
     double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
+      w[i] = weights[i] * std::exp(w[i] - wmax);
     }
     double sum = w.sum();
     y.resize(dim - x.size());
@@ -359,7 +359,7 @@ class mix {
       cov += (w[i] / sum) * (L * L.transpose());
       cov += (w[i] / sum) * (_v * _v.transpose());
     }
-    return log(sum) + wmax;
+    return std::log(sum) + wmax;
   }
 
   // 批量计算条件期望和条件协方差
@@ -625,8 +625,14 @@ class trainer {
     }
   }
 
+
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+    // const Eigen::Index blocksize = 150;
+    // const Eigen::Index N = samples.cols();
+    // const Eigen::Index D = samples.rows();
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -638,13 +644,15 @@ class trainer {
         covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
     } else {
-      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-      quadric.selfadjointView<Lower>().rankUpdate(samples);
-      for (int i = 0; i < rank; i++) {
-        weights[i] += samples.cols();
-        means[i] += samples.rowwise().sum();
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
+		assert(rank > 0);
+		weights[0] += samples.cols();
+		means[0] += samples.rowwise().sum();
+		covs[0].selfadjointView<Lower>().rankUpdate(samples);
+		for (int i = 1; i < rank; i++) {
+			weights[i] = weights[0];
+			means[i] = means[0];
+			covs[i] = covs[0];
+		}
     }
   }
 
