@@ -137,8 +137,8 @@ class mvn {
     MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
       X.colwise() - u.head(k));
     Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
-    return -0.5 * (temp.colwise().squaredNorm().array() + k * std::log(2 * M_PI) +
-                   d(k - 1));
+    return -0.5 * (temp.colwise().squaredNorm().array() +
+                   k * std::log(2 * M_PI) + d(k - 1));
   }
 
   // 快速计算对数边缘概率密度和条件期望
@@ -241,7 +241,7 @@ class mix {
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-	  W.col(i) = cores[i].BatchEvaluate(X).array() + std::log(weights[i]);
+      W.col(i) = cores[i].BatchEvaluate(X).array() + std::log(weights[i]);
     }
     VectorXd wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
@@ -641,14 +641,14 @@ class trainer {
       }
     } else {
       assert(rank > 0);
-		  weights[0] += samples.cols();
-		  means[0] += samples.rowwise().sum();
-		  covs[0].selfadjointView<Lower>().rankUpdate(samples);
-		  for (int i = 1; i < rank; i++) {
-			  weights[i] = weights[0];
-			  means[i] = means[0];
-			  covs[i] = covs[0];
-		  }
+      weights[0] += samples.cols();
+      means[0] += samples.rowwise().sum();
+      covs[0].selfadjointView<Lower>().rankUpdate(samples);
+      for (int i = 1; i < rank; i++) {
+        weights[i] = weights[0];
+        means[i] = means[0];
+        covs[i] = covs[0];
+      }
     }
   }
 
