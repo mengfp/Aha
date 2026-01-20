@@ -627,8 +627,8 @@ class trainer {
 
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+    // _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    // _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -640,133 +640,15 @@ class trainer {
         covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
     } else {
-      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-      quadric.selfadjointView<Lower>().rankUpdate(samples);
-      for (int i = 0; i < rank; i++) {
-        weights[i] += samples.cols();
-        means[i] += samples.rowwise().sum();
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
-    }
-  }
-
-  using MatrixAligned = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::AutoAlign | Eigen::ColMajor>;
-
-  void __BatchTrain(const MatrixXdRef& samples) {
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
-
-    const Eigen::Index N = samples.cols();
-    const Eigen::Index D = samples.rows();
-    const Eigen::Index blocksize = 32;  // 你验证出的 L1 缓存黄金分割点
-
-    // --- 1. 预分配工作空间 (Workspace)，彻底避免循环内 malloc ---
-    // W_buffer 用于存储 BatchEvaluate 的似然权重
-    alignas(64) MatrixAligned W_buffer(blocksize, rank);
-    alignas(64) MatrixAligned W_sqrt_buffer(blocksize, rank);
-    // tmp_buffer 用于 M-Step 的矩阵投影计算
-    alignas(64) MatrixAligned tmp_buffer(D, blocksize);
-    // quadric_buffer 用于初始化分支的协方差累加
-    alignas(64) MatrixAligned quadric_buffer(D, D);
-
-    for (int i = 0; i < N; i += blocksize) {
-      // 自动处理 N 不是 blocksize 整数倍的情况（尾部样本）
-      auto cur_B = std::min(blocksize, N - i);
-      auto block = samples.middleCols(i, cur_B);
-
-      if (m.Initialized()) {
-        auto W = W_buffer.topRows(cur_B);
-        entropy -= m.BatchEvaluate(block, W).sum();
-
-        auto W_sqrt = W_sqrt_buffer.topRows(cur_B);
-        W_sqrt.array() = W.array().sqrt();
-
-        for (int k = 0; k < rank; k++) {
-          // 1. 权重累加（最快，寄存器操作）
-          weights[k] += W.col(k).sum();
-
-          // 2. 这里的计算顺序很关键！
-          auto tmp = tmp_buffer.leftCols(cur_B);
-          auto W_col_k_sqrt = W_sqrt.col(k).transpose().array();
-
-          // 核心：在计算 tmp 的同时，其实已经完成了 block 的行遍历
-          // 尝试让编译器将这两步操作的指令交织在一起
-          tmp.noalias() = (block.array().rowwise() * W_col_k_sqrt).matrix();
-
-          // 协方差更新（这是最重的计算）
-          covs[k].selfadjointView<Lower>().rankUpdate(tmp);
-
-          // 均值更新：如果你的 rank 不大，这一行放在 rankUpdate 后面或前面
-          // 可能会触发不同的 CPU 流水线重排
-          // means[k].noalias() += block * W.col(k);
-          means[k].noalias() += block.lazyProduct(W.col(k));
-        }
-      }
-
-      // if (m.Initialized()) {
-      //   auto W = W_buffer.topRows(cur_B);
-      //   entropy -= m.BatchEvaluate(block, W).sum();
-
-      //  // --- 绝杀 1: 预计算 sqrt，Workspace 复用 (定义在循环外) ---
-      //  auto W_sqrt = W_sqrt_buffer.topRows(cur_B);
-      //  W_sqrt.array() = W.array().sqrt();
-
-      //  for (int k = 0; k < rank; k++) {
-      //    weights[k] += W.col(k).sum();
-
-      //    // --- 绝杀 2: 显式优化均值更新 ---
-      //    means[k].noalias() += block.lazyProduct(W.col(k));
-
-      //    auto tmp = tmp_buffer.leftCols(cur_B);
-      //    // 直接乘预算好的 sqrt，彻底消灭循环内 sqrt 调用
-      //    tmp.noalias() =
-      //      (block.array().rowwise() * W_sqrt.col(k).transpose().array())
-      //        .matrix();
-
-      //    covs[k].selfadjointView<Lower>().rankUpdate(tmp);
-      //  }
-      //}
-
-      // if (m.Initialized()) {
-      //   // --- 分支 A: 增量训练 (EM 步) ---
-      //   auto W = W_buffer.topRows(cur_B);
-
-      //  // 似然计算直接覆盖 W，无需 setZero
-      //  entropy -= m.BatchEvaluate(block, W).sum();
-
-      //  for (int k = 0; k < rank; k++) {
-      //    // 1. 更新权重 (Scalar)
-      //    weights[k] += W.col(k).sum();
-
-      //    // 2. 更新均值 (Matrix-Vector)
-      //    means[k].noalias() += block * W.col(k);
-
-      //    // 3. 更新协方差 (Rank-1 Update)
-      //    // 先计算加权投影，结果仅 25KB，稳在 L1 Cache
-      //    auto tmp = tmp_buffer.leftCols(cur_B);
-      //    tmp = (block.array().rowwise() *
-      //    W.col(k).transpose().array().sqrt())
-      //            .matrix();
-      //    covs[k].selfadjointView<Lower>().rankUpdate(tmp);
-      //  }
-      //}
-      //
-
-      else {
-        // --- 分支 B: 初始化阶段 (极致优化版) ---
-        // 1. 预计算当前块的协方差贡献 (只算一次)
-        quadric_buffer.setZero();
-        quadric_buffer.selfadjointView<Lower>().rankUpdate(block);
-
-        // 2. 预计算当前块的均值贡献 (只算一次)
-        VectorXd block_sum = block.rowwise().sum();
-
-        for (int k = 0; k < rank; k++) {
-          weights[k] += cur_B;
-          means[k].noalias() += block_sum;  // 直接累加预计算的结果
-          covs[k] += quadric_buffer.selfadjointView<Lower>();
-        }
-      }
+      assert(rank > 0);
+		  weights[0] += samples.cols();
+		  means[0] += samples.rowwise().sum();
+		  covs[0].selfadjointView<Lower>().rankUpdate(samples);
+		  for (int i = 1; i < rank; i++) {
+			  weights[i] = weights[0];
+			  means[i] = means[0];
+			  covs[i] = covs[0];
+		  }
     }
   }
 
