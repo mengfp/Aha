@@ -35,13 +35,6 @@ using Eigen::VectorXf;
 
 using json = nlohmann::ordered_json;
 
-inline void log_assign(const std::vector<double>& x, std::vector<double>& y) {
-  y.resize(x.size());
-  for (size_t i = 0; i < x.size(); ++i) {
-    y[i] = std::log(x[i]);
-  }
-}
-
 /*
 ** 多元正态分布
 */
@@ -220,7 +213,6 @@ class mix {
     rank = (int)weights.size();
     dim = means.size() > 0 ? (int)means[0].size() : 0;
     this->weights = weights;
-    log_assign(weights, log_weights);
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
       cores[i].Initialize(means[i], covs[i]);
@@ -249,7 +241,7 @@ class mix {
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchEvaluate(X).array() + log_weights[i];
+      W.col(i) = cores[i].BatchEvaluate(X).array() + std::log(weights[i]);
     }
     VectorXd wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
@@ -492,7 +484,6 @@ class mix {
       rank = r;
       dim = d;
       weights = w;
-      log_assign(weights, log_weights);
       cores = c;
       return true;
     } catch (...) {
@@ -507,7 +498,6 @@ class mix {
         if (weights[i] < weights[j]) {
           // 交换位置
           std::swap(weights[i], weights[j]);
-          std::swap(log_weights[i], log_weights[j]);
           std::swap(cores[i], cores[j]);
         }
       }
@@ -579,7 +569,6 @@ class mix {
     rank = r;
     dim = d;
     weights.assign((double*)p, (double*)p + rank);
-    log_assign(weights, log_weights);
     p += sizeof(double) * rank;
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
@@ -597,8 +586,6 @@ class mix {
   int dim;
   std::vector<double> weights;
   std::vector<mvn> cores;
-  // 预计算量
-  std::vector<double> log_weights;
 };
 
 /*
@@ -640,6 +627,8 @@ class trainer {
 
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
+    // _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    // _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
