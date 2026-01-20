@@ -26,7 +26,9 @@ using Eigen::Dynamic;
 using Eigen::Infinity;
 using Eigen::LLT;
 using Eigen::Lower;
+using Eigen::StrictlyUpper;
 using Eigen::Map;
+using Eigen::Ref;
 using Eigen::MatrixXd;
 using Eigen::MatrixXf;
 using Eigen::Success;
@@ -63,57 +65,53 @@ class mvn {
     assert(llt.info() == Success);
     u = mu;
     l = llt.matrixL();
-    d.resize(n);
-    double c = 0;
+    l_inverse = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
+    l_inverse.triangularView<StrictlyUpper>().setZero();
+    c.resize(n);
+    double d = 0.0;
     for (int i = 0; i < n; i++) {
-      c += 2 * std::log(l(i, i));
-      d(i) = c;
+      d += 2 * std::log(l(i, i));
+      c(i) = -0.5 * ((i + 1) * std::log(2 * M_PI) + d);
     }
-    inv_l = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
-    mvn_constant = -0.5 * (n * std::log(2 * M_PI) + c);
   }
 
   // 计算对数概率密度
   double Evaluate(const VectorXdRef& x) const {
     assert(x.size() == u.size());
-    auto n = u.size();
-    return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
-                   n * std::log(2 * M_PI) + d(n - 1));
+    return -0.5 * (l_inverse * (x - u)).squaredNorm() + c(c.size() - 1);
   }
 
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    return -0.5 * ((inv_l.triangularView<Lower>() * (X.colwise() - u))
-                     .colwise()
-                     .squaredNorm()
-                     .array()) + mvn_constant;
+    return -0.5 *
+             ((l_inverse * (X.colwise() - u)).colwise().squaredNorm().array()) +
+           c(c.size() - 1);
   }
 
   // 快速批量计算对数概率密度
   VectorXd FastEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    auto n = u.size();
     auto _u = u.cast<float>();
     auto _l = l.cast<float>();
-    return -0.5 * (_l.triangularView<Lower>()
-                     .solve(X.cast<float>().colwise() - _u)
-                     .colwise()
-                     .squaredNorm()
-                     .array()
-                     .cast<double>() +
-                   n * std::log(2 * M_PI) + d(n - 1));
+    return -0.5 * _l.triangularView<Lower>()
+                    .solve(X.cast<float>().colwise() - _u)
+                    .colwise()
+                    .squaredNorm()
+                    .array()
+                    .cast<double>() +
+           c(c.size() - 1);
   }
 
   // 计算对数边缘概率密度
   double PartialEvaluate(const VectorXdRef& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
-    return -0.5 * (l.topLeftCorner(k, k)
-                     .triangularView<Lower>()
-                     .solve(x - u.head(k))
-                     .squaredNorm() +
-                   k * std::log(2 * M_PI) + d(k - 1));
+    return -0.5 * l.topLeftCorner(k, k)
+                    .triangularView<Lower>()
+                    .solve(x - u.head(k))
+                    .squaredNorm() +
+           c(k - 1);
   }
 
   // 计算对数边缘概率密度和条件期望
@@ -125,7 +123,7 @@ class mvn {
     VectorXd temp =
       l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
-    return -0.5 * (temp.squaredNorm() + k * std::log(2 * M_PI) + d(k - 1));
+    return -0.5 * temp.squaredNorm() + c(k - 1);
   }
 
   // 批量计算对数边缘概率密度和条件期望
@@ -137,8 +135,7 @@ class mvn {
     MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
       X.colwise() - u.head(k));
     Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
-    return -0.5 * (temp.colwise().squaredNorm().array() +
-                   k * std::log(2 * M_PI) + d(k - 1));
+    return -0.5 * temp.colwise().squaredNorm().array() + c(k - 1);
   }
 
   // 快速计算对数边缘概率密度和条件期望
@@ -153,8 +150,8 @@ class mvn {
       X.cast<float>().colwise() - _u.head(k));
     Y = ((_l.bottomLeftCorner(n - k, k) * temp).colwise() + _u.tail(n - k))
           .cast<double>();
-    return -0.5 * (temp.cast<double>().colwise().squaredNorm().array() +
-                   k * log(2 * M_PI) + d(k - 1));
+    return -0.5 * temp.cast<double>().colwise().squaredNorm().array() +
+           c(k - 1);
   }
 
  public:
@@ -169,10 +166,8 @@ class mvn {
  protected:
   VectorXd u;
   MatrixXd l;
-  VectorXd d;
-  // Pre-calculated
-  MatrixXd inv_l;
-  double mvn_constant = 0.0;
+  MatrixXd l_inverse;
+  VectorXd c;
 };
 
 /*
