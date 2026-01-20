@@ -58,16 +58,19 @@ class mvn {
   void Initialize(const VectorXdRef& mu, const MatrixXdRef& sigma) {
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
+    int n = (int)mu.size();
     auto llt = LLT<MatrixXd>(sigma.selfadjointView<Lower>());
     assert(llt.info() == Success);
     u = mu;
     l = llt.matrixL();
-    d = VectorXd(mu.size());
+    d.resize(n);
     double c = 0;
-    for (int i = 0; i < (int)mu.size(); i++) {
+    for (int i = 0; i < n; i++) {
       c += 2 * std::log(l(i, i));
       d(i) = c;
     }
+    inv_l = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
+    mvn_constant = -0.5 * (n * std::log(2 * M_PI) + c);
   }
 
   // 计算对数概率密度
@@ -81,13 +84,10 @@ class mvn {
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    auto n = u.size();
-    return -0.5 * (l.triangularView<Lower>()
-                     .solve(X.colwise() - u)
+    return -0.5 * ((inv_l.triangularView<Lower>() * (X.colwise() - u))
                      .colwise()
                      .squaredNorm()
-                     .array() +
-                   n * std::log(2 * M_PI) + d(n - 1));
+                     .array()) + mvn_constant;
   }
 
   // 快速批量计算对数概率密度
@@ -170,6 +170,9 @@ class mvn {
   VectorXd u;
   MatrixXd l;
   VectorXd d;
+  // Pre-calculated
+  MatrixXd inv_l;
+  double mvn_constant = 0.0;
 };
 
 /*
@@ -627,8 +630,8 @@ class trainer {
 
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
-    // _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    // _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -640,7 +643,6 @@ class trainer {
         covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
     } else {
-      assert(rank > 0);
       weights[0] += samples.cols();
       means[0] += samples.rowwise().sum();
       covs[0].selfadjointView<Lower>().rankUpdate(samples);
