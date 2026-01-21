@@ -8,6 +8,7 @@
 #include <cfloat>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <numeric>
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
@@ -29,6 +30,7 @@ using Eigen::Lower;
 using Eigen::Map;
 using Eigen::MatrixXd;
 using Eigen::MatrixXf;
+using Eigen::Ref;
 using Eigen::Success;
 using Eigen::VectorXd;
 using Eigen::VectorXf;
@@ -58,62 +60,60 @@ class mvn {
   void Initialize(const VectorXdRef& mu, const MatrixXdRef& sigma) {
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
+    int n = (int)mu.size();
     auto llt = LLT<MatrixXd>(sigma.selfadjointView<Lower>());
     assert(llt.info() == Success);
     u = mu;
     l = llt.matrixL();
-    d = VectorXd(mu.size());
-    double c = 0;
-    for (int i = 0; i < (int)mu.size(); i++) {
-      c += 2 * log(l(i, i));
-      d(i) = c;
+    l_inverse = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
+    c.resize(n);
+    double d = 0.0;
+    for (int i = 0; i < n; i++) {
+      d += 2 * std::log(l(i, i));
+      c(i) = -0.5 * ((i + 1) * std::log(2 * M_PI) + d);
     }
   }
 
   // 计算对数概率密度
   double Evaluate(const VectorXdRef& x) const {
     assert(x.size() == u.size());
-    auto n = u.size();
-    return -0.5 * (l.triangularView<Lower>().solve(x - u).squaredNorm() +
-                   n * log(2 * M_PI) + d(n - 1));
+    return -0.5 * (l_inverse.triangularView<Lower>() * (x - u)).squaredNorm() +
+           c(c.size() - 1);
   }
 
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    auto n = u.size();
-    return -0.5 * (l.triangularView<Lower>()
-                     .solve(X.colwise() - u)
-                     .colwise()
-                     .squaredNorm()
-                     .array() +
-                   n * log(2 * M_PI) + d(n - 1));
+    return -0.5 * (l_inverse.triangularView<Lower>() * (X.colwise() - u))
+                    .colwise()
+                    .squaredNorm()
+                    .array() +
+           c(c.size() - 1);
   }
 
   // 快速批量计算对数概率密度
   VectorXd FastEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    auto n = u.size();
     auto _u = u.cast<float>();
     auto _l = l.cast<float>();
-    return -0.5 * (_l.triangularView<Lower>()
-                     .solve(X.cast<float>().colwise() - _u)
-                     .colwise()
-                     .squaredNorm()
-                     .array()
-                     .cast<double>() +
-                   n * log(2 * M_PI) + d(n - 1));
+    return -0.5 * _l.triangularView<Lower>()
+                    .solve(X.cast<float>().colwise() - _u)
+                    .colwise()
+                    .squaredNorm()
+                    .array()
+                    .cast<double>() +
+           c(c.size() - 1);
   }
 
   // 计算对数边缘概率密度
   double PartialEvaluate(const VectorXdRef& x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
-    return -0.5 * (l.topLeftCorner(k, k)
-                     .triangularView<Lower>()
-                     .solve(x - u.head(k))
-                     .squaredNorm() +
-                   k * log(2 * M_PI) + d(k - 1));
+    return -0.5 * l.topLeftCorner(k, k)
+                    .triangularView<Lower>()
+                    .solve(x - u.head(k))
+                    .squaredNorm() +
+           c(k - 1);
   }
 
   // 计算对数边缘概率密度和条件期望
@@ -125,7 +125,7 @@ class mvn {
     VectorXd temp =
       l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
     y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
-    return -0.5 * (temp.squaredNorm() + k * log(2 * M_PI) + d(k - 1));
+    return -0.5 * temp.squaredNorm() + c(k - 1);
   }
 
   // 批量计算对数边缘概率密度和条件期望
@@ -137,8 +137,7 @@ class mvn {
     MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
       X.colwise() - u.head(k));
     Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
-    return -0.5 * (temp.colwise().squaredNorm().array() + k * log(2 * M_PI) +
-                   d(k - 1));
+    return -0.5 * temp.colwise().squaredNorm().array() + c(k - 1);
   }
 
   // 快速计算对数边缘概率密度和条件期望
@@ -153,8 +152,8 @@ class mvn {
       X.cast<float>().colwise() - _u.head(k));
     Y = ((_l.bottomLeftCorner(n - k, k) * temp).colwise() + _u.tail(n - k))
           .cast<double>();
-    return -0.5 * (temp.cast<double>().colwise().squaredNorm().array() +
-                   k * log(2 * M_PI) + d(k - 1));
+    return -0.5 * temp.cast<double>().colwise().squaredNorm().array() +
+           c(k - 1);
   }
 
  public:
@@ -169,7 +168,8 @@ class mvn {
  protected:
   VectorXd u;
   MatrixXd l;
-  VectorXd d;
+  MatrixXd l_inverse;
+  VectorXd c;
 };
 
 /*
@@ -228,25 +228,23 @@ class mix {
     }
     double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
+      w[i] = weights[i] * std::exp(w[i] - wmax);
     }
     double sum = w.sum();
     w.array() /= sum;
-    return log(sum) + wmax;
+    return std::log(sum) + wmax;
   }
 
   // 批量计算对数概率密度和分类权重
-  VectorXd BatchEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
+  VectorXd BatchEvaluate(const MatrixXdRef& X, Ref<MatrixXd> W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchEvaluate(X);
+      W.col(i) = cores[i].BatchEvaluate(X).array() + std::log(weights[i]);
     }
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
@@ -279,7 +277,7 @@ class mix {
     }
     double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
+      w[i] = weights[i] * std::exp(w[i] - wmax);
     }
     double sum = w.sum();
     y.resize(dim - x.size());
@@ -287,7 +285,7 @@ class mix {
     for (int i = 0; i < rank; i++) {
       y += (w[i] / sum) * v[i];
     }
-    return log(sum) + wmax;
+    return std::log(sum) + wmax;
   }
 
   // 批量计算对数边缘概率密度和条件期望
@@ -344,7 +342,7 @@ class mix {
     }
     double wmax = w.maxCoeff();
     for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * exp(w[i] - wmax);
+      w[i] = weights[i] * std::exp(w[i] - wmax);
     }
     double sum = w.sum();
     y.resize(dim - x.size());
@@ -361,11 +359,13 @@ class mix {
       cov += (w[i] / sum) * (L * L.transpose());
       cov += (w[i] / sum) * (_v * _v.transpose());
     }
-    return log(sum) + wmax;
+    return std::log(sum) + wmax;
   }
 
   // 批量计算条件期望和条件协方差
-  VectorXd BatchPredictEx(const MatrixXdRef& X, MatrixXd& Y, MatrixXd& COV) const {
+  VectorXd BatchPredictEx(const MatrixXdRef& X,
+                          MatrixXd& Y,
+                          MatrixXd& COV) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -400,7 +400,9 @@ class mix {
   }
 
   // 批量快速计算条件期望和条件协方差
-  VectorXd FastPredictEx(const MatrixXdRef& X, MatrixXd& Y, MatrixXd& COV) const {
+  VectorXd FastPredictEx(const MatrixXdRef& X,
+                         MatrixXd& Y,
+                         MatrixXd& COV) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
@@ -600,6 +602,8 @@ class trainer {
       weights(m.Rank()),
       means(m.Rank()),
       covs(m.Rank()) {
+    assert(rank > 0 && dim > 0);
+    Reset();
   }
 
   // 添加一个样本
@@ -614,37 +618,30 @@ class trainer {
         covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
       }
     } else {
-      MatrixXd quadric = (sample * sample.transpose()).selfadjointView<Lower>();
-      for (int i = 0; i < rank; i++) {
-        weights[i] += 1.0;
-        means[i] += sample;
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
+      weights[0] += 1.0;
+      means[0] += sample;
+      covs[0].selfadjointView<Lower>().rankUpdate(sample);
     }
   }
 
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
       for (int i = 0; i < rank; i++) {
         weights[i] += W.col(i).sum();
         means[i] += samples * W.col(i);
-        MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
         MatrixXd m =
           samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        quadric.selfadjointView<Lower>().rankUpdate(m);
-        covs[i] += quadric.selfadjointView<Lower>();
+        covs[i].selfadjointView<Lower>().rankUpdate(m);
       }
     } else {
-      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-      quadric.selfadjointView<Lower>().rankUpdate(samples);
-      for (int i = 0; i < rank; i++) {
-        weights[i] += samples.cols();
-        means[i] += samples.rowwise().sum();
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
+      weights[0] += samples.cols();
+      means[0] += samples.rowwise().sum();
+      covs[0].selfadjointView<Lower>().rankUpdate(samples);
     }
   }
 
@@ -664,22 +661,15 @@ class trainer {
         covs[i] += quadric.cast<double>().selfadjointView<Lower>();
       }
     } else {
-      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-      quadric.selfadjointView<Lower>().rankUpdate(samples);
-      for (int i = 0; i < rank; i++) {
-        weights[i] += samples.cols();
-        means[i] += samples.rowwise().sum();
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
+      weights[0] += samples.cols();
+      means[0] += samples.rowwise().sum();
+      covs[0].selfadjointView<Lower>().rankUpdate(samples);
     }
   }
 
   // 合并两个训练器（w为样本权重）
   bool Merge(const trainer& t, double w = 1.0) {
-    if (t.rank != rank) {
-      return false;
-    }
-    if (t.dim != dim) {
+    if (t.rank != rank || t.dim != dim) {
       return false;
     }
     entropy += t.entropy * w;
@@ -753,28 +743,34 @@ class trainer {
 
   // 更新模型（对角线加载为可选项）
   double Update(double noise_floor = 0.0) {
-    double s = 0;
-    for (auto& w : weights) {
-      s += w;
-    }
-    entropy /= s;
-    for (int i = 0; i < rank; i++) {
-      means[i] *= (1.0 / weights[i]);
-      covs[i] *= (1.0 / weights[i]);
-      covs[i].selfadjointView<Lower>().rankUpdate(means[i], -1.0);
-      covs[i].diagonal().array() += noise_floor * noise_floor;
-      weights[i] /= s;
-    }
-    if (!m.Initialized() && rank > 0) {
+    if (m.Initialized()) {
+      double s = std::accumulate(weights.begin(), weights.end(), 0.0);
+      entropy /= s;
+      for (int i = 0; i < rank; i++) {
+        means[i] *= (1.0 / weights[i]);
+        covs[i] *= (1.0 / weights[i]);
+        covs[i].selfadjointView<Lower>().rankUpdate(means[i], -1.0);
+        covs[i].diagonal().array() += noise_floor * noise_floor;
+        weights[i] /= s;
+      }
+      m.Initialize(weights, means, covs);
+      return entropy;
+    } else {
       // 随机初始化
+      const double s = weights[0];
+      means[0] *= (1.0 / s);
+      covs[0] *= (1.0 / s);
+      covs[0].selfadjointView<Lower>().rankUpdate(means[0], -1.0);
+      covs[0].diagonal().array() += noise_floor * noise_floor;
       MVNGenerator gen(means[0], covs[0]);
       for (int i = 0; i < rank; i++) {
+        weights[i] = 1.0 / rank;
         means[i] = gen.Gen();
+        covs[i] = covs[0];
       }
-      entropy = std::numeric_limits<double>::infinity();
+      m.Initialize(weights, means, covs);
+      return std::numeric_limits<double>::infinity();
     }
-    m.Initialize(weights, means, covs);
-    return entropy;
   }
 
   // 获取阶数
@@ -800,9 +796,11 @@ class trainer {
   void Reset() {
     entropy = 0;
     for (int i = 0; i < rank; i++) {
-      weights[i] = 0;
-      means[i] = VectorXd::Zero(dim);
-      covs[i] = MatrixXd::Zero(dim, dim);
+      weights[i] = 0.0;
+      means[i].resize(dim);
+      means[i].setZero();
+      covs[i].resize(dim, dim);
+      covs[i].setZero();
     }
   }
 
