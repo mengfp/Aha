@@ -27,9 +27,9 @@ using Eigen::Infinity;
 using Eigen::LLT;
 using Eigen::Lower;
 using Eigen::Map;
-using Eigen::Ref;
 using Eigen::MatrixXd;
 using Eigen::MatrixXf;
+using Eigen::Ref;
 using Eigen::Success;
 using Eigen::VectorXd;
 using Eigen::VectorXf;
@@ -76,19 +76,18 @@ class mvn {
   // 计算对数概率密度
   double Evaluate(const VectorXdRef& x) const {
     assert(x.size() == u.size());
-    return -0.5 * (l_inverse.triangularView<Lower>() * (x - u)).squaredNorm() + c(c.size() - 1);
-    // return -0.5 * l.triangularView<Lower>().solve(x - u).squaredNorm() + c(c.size() - 1);
+    return -0.5 * (l_inverse.triangularView<Lower>() * (x - u)).squaredNorm() +
+           c(c.size() - 1);
   }
 
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    return -0.5 *
-           (l_inverse.triangularView<Lower>() * (X.colwise() - u)).colwise().squaredNorm().array() +
+    return -0.5 * (l_inverse.triangularView<Lower>() * (X.colwise() - u))
+                    .colwise()
+                    .squaredNorm()
+                    .array() +
            c(c.size() - 1);
-    // return -0.5 *
-    //          l.triangularView<Lower>().solve(X.colwise() - u).colwise().squaredNorm().array() +
-    //        c(c.size() - 1);
   }
 
   // 快速批量计算对数概率密度
