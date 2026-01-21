@@ -26,7 +26,6 @@ using Eigen::Dynamic;
 using Eigen::Infinity;
 using Eigen::LLT;
 using Eigen::Lower;
-using Eigen::StrictlyUpper;
 using Eigen::Map;
 using Eigen::Ref;
 using Eigen::MatrixXd;
@@ -66,7 +65,6 @@ class mvn {
     u = mu;
     l = llt.matrixL();
     l_inverse = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
-    l_inverse.triangularView<StrictlyUpper>().setZero();
     c.resize(n);
     double d = 0.0;
     for (int i = 0; i < n; i++) {
@@ -78,15 +76,19 @@ class mvn {
   // 计算对数概率密度
   double Evaluate(const VectorXdRef& x) const {
     assert(x.size() == u.size());
-    return -0.5 * (l_inverse * (x - u)).squaredNorm() + c(c.size() - 1);
+    return -0.5 * (l_inverse.triangularView<Lower>() * (x - u)).squaredNorm() + c(c.size() - 1);
+    // return -0.5 * l.triangularView<Lower>().solve(x - u).squaredNorm() + c(c.size() - 1);
   }
 
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
     return -0.5 *
-             ((l_inverse * (X.colwise() - u)).colwise().squaredNorm().array()) +
+           (l_inverse.triangularView<Lower>() * (X.colwise() - u)).colwise().squaredNorm().array() +
            c(c.size() - 1);
+    // return -0.5 *
+    //          l.triangularView<Lower>().solve(X.colwise() - u).colwise().squaredNorm().array() +
+    //        c(c.size() - 1);
   }
 
   // 快速批量计算对数概率密度
