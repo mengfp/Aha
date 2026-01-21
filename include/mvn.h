@@ -8,6 +8,7 @@
 #include <cfloat>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <numeric>
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
@@ -601,6 +602,8 @@ class trainer {
       weights(m.Rank()),
       means(m.Rank()),
       covs(m.Rank()) {
+    assert(rank > 0 && dim > 0);
+    Reset();
   }
 
   // 添加一个样本
@@ -615,12 +618,9 @@ class trainer {
         covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
       }
     } else {
-      MatrixXd quadric = (sample * sample.transpose()).selfadjointView<Lower>();
-      for (int i = 0; i < rank; i++) {
-        weights[i] += 1.0;
-        means[i] += sample;
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
+      weights[0] += 1.0;
+      means[0] += sample;
+      covs[0].selfadjointView<Lower>().rankUpdate(sample);
     }
   }
 
@@ -642,11 +642,6 @@ class trainer {
       weights[0] += samples.cols();
       means[0] += samples.rowwise().sum();
       covs[0].selfadjointView<Lower>().rankUpdate(samples);
-      for (int i = 1; i < rank; i++) {
-        weights[i] = weights[0];
-        means[i] = means[0];
-        covs[i] = covs[0];
-      }
     }
   }
 
@@ -666,22 +661,15 @@ class trainer {
         covs[i] += quadric.cast<double>().selfadjointView<Lower>();
       }
     } else {
-      MatrixXd quadric = MatrixXd::Zero(samples.rows(), samples.rows());
-      quadric.selfadjointView<Lower>().rankUpdate(samples);
-      for (int i = 0; i < rank; i++) {
-        weights[i] += samples.cols();
-        means[i] += samples.rowwise().sum();
-        covs[i] += quadric.selfadjointView<Lower>();
-      }
+      weights[0] += samples.cols();
+      means[0] += samples.rowwise().sum();
+      covs[0].selfadjointView<Lower>().rankUpdate(samples);
     }
   }
 
   // 合并两个训练器（w为样本权重）
   bool Merge(const trainer& t, double w = 1.0) {
-    if (t.rank != rank) {
-      return false;
-    }
-    if (t.dim != dim) {
+    if (t.rank != rank || t.dim != dim) {
       return false;
     }
     entropy += t.entropy * w;
@@ -755,28 +743,34 @@ class trainer {
 
   // 更新模型（对角线加载为可选项）
   double Update(double noise_floor = 0.0) {
-    double s = 0;
-    for (auto& w : weights) {
-      s += w;
-    }
-    entropy /= s;
-    for (int i = 0; i < rank; i++) {
-      means[i] *= (1.0 / weights[i]);
-      covs[i] *= (1.0 / weights[i]);
-      covs[i].selfadjointView<Lower>().rankUpdate(means[i], -1.0);
-      covs[i].diagonal().array() += noise_floor * noise_floor;
-      weights[i] /= s;
-    }
-    if (!m.Initialized() && rank > 0) {
+    if (m.Initialized()) {
+      double s = std::accumulate(weights.begin(), weights.end(), 0.0);
+      entropy /= s;
+      for (int i = 0; i < rank; i++) {
+        means[i] *= (1.0 / weights[i]);
+        covs[i] *= (1.0 / weights[i]);
+        covs[i].selfadjointView<Lower>().rankUpdate(means[i], -1.0);
+        covs[i].diagonal().array() += noise_floor * noise_floor;
+        weights[i] /= s;
+      }
+      m.Initialize(weights, means, covs);
+      return entropy;
+    } else {
       // 随机初始化
+      const double s = weights[0];
+      means[0] *= (1.0 / s);
+      covs[0] *= (1.0 / s);
+      covs[0].selfadjointView<Lower>().rankUpdate(means[0], -1.0);
+      covs[0].diagonal().array() += noise_floor * noise_floor;
       MVNGenerator gen(means[0], covs[0]);
       for (int i = 0; i < rank; i++) {
+        weights[i] = 1.0 / rank;
         means[i] = gen.Gen();
+        covs[i] = covs[0];
       }
-      entropy = std::numeric_limits<double>::infinity();
+      m.Initialize(weights, means, covs);
+      return std::numeric_limits<double>::infinity();
     }
-    m.Initialize(weights, means, covs);
-    return entropy;
   }
 
   // 获取阶数
@@ -802,9 +796,11 @@ class trainer {
   void Reset() {
     entropy = 0;
     for (int i = 0; i < rank; i++) {
-      weights[i] = 0;
-      means[i] = VectorXd::Zero(dim);
-      covs[i] = MatrixXd::Zero(dim, dim);
+      weights[i] = 0.0;
+      means[i].resize(dim);
+      means[i].setZero();
+      covs[i].resize(dim, dim);
+      covs[i].setZero();
     }
   }
 
