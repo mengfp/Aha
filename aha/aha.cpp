@@ -35,7 +35,7 @@ int Model::Dim() const {
   return ((mix*)p)->Dim();
 }
 
-double Model::Predict(const VectorXd& x, VectorXd& y) const {
+double Model::Predict(const VectorXdRef& x, VectorXd& y) const {
   return ((mix*)p)->Predict(x, y);
 }
 
@@ -60,11 +60,11 @@ bool Model::Import(const std::string& model) {
   return ((mix*)p)->Import(model);
 }
 
-VectorXd Model::BatchPredict(const MatrixXd& X, MatrixXd& Y) const {
+VectorXd Model::BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
   return ((mix*)p)->BatchPredict(X, Y);
 }
 
-VectorXd Model::FastPredict(const MatrixXd& X, MatrixXd& Y) const {
+VectorXd Model::FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
   return ((mix*)p)->FastPredict(X, Y);
 }
 
@@ -76,17 +76,17 @@ bool Model::Load(const std::vector<char>& input) {
   return ((mix*)p)->Load(input);
 }
 
-double Model::PredictEx(const VectorXd& x, VectorXd& y, MatrixXd& cov) const {
+double Model::PredictEx(const VectorXdRef& x, VectorXd& y, MatrixXd& cov) const {
   return ((mix*)p)->PredictEx(x, y, cov);
 }
 
-VectorXd Model::BatchPredictEx(const MatrixXd& X,
+VectorXd Model::BatchPredictEx(const MatrixXdRef& X,
                              MatrixXd& Y,
                              MatrixXd& COV) const {
   return ((mix*)p)->BatchPredictEx(X, Y, COV);
 }
 
-VectorXd Model::FastPredictEx(const MatrixXd& X,
+VectorXd Model::FastPredictEx(const MatrixXdRef& X,
                                MatrixXd& Y,
                                MatrixXd& COV) const {
   return ((mix*)p)->FastPredictEx(X, Y, COV);
@@ -108,7 +108,7 @@ int Trainer::Dim() const {
   return ((trainer*)p)->Dim();
 }
 
-void Trainer::Train(const VectorXd& sample) {
+void Trainer::Train(const VectorXdRef& sample) {
   ((trainer*)p)->Train(sample);
 }
 
@@ -137,11 +137,11 @@ void Trainer::Reset() {
   return ((trainer*)p)->Reset();
 }
 
-void Trainer::BatchTrain(const MatrixXd& samples) {
+void Trainer::BatchTrain(const MatrixXdRef& samples) {
   ((trainer*)p)->BatchTrain(samples);
 }
 
-void Trainer::FastTrain(const MatrixXd& samples) {
+void Trainer::FastTrain(const MatrixXdRef& samples) {
   ((trainer*)p)->FastTrain(samples);
 }
 
