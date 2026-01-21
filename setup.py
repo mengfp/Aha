@@ -10,7 +10,7 @@ import re
 if sys.platform == "win32":
     CXX_OPTIONS = ["/std:c++17"]
 else:
-    CXX_OPTIONS = ["-std=c++17", "-O3"]
+    CXX_OPTIONS = ["-std=c++17", "-O3", "-Wno-maybe-uninitialized"]
     # Native optimization
     CXX_OPTIONS += ["-march=native"]
 
