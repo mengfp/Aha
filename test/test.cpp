@@ -238,23 +238,20 @@ bool TestMVNGenerator() {
 }
 
 bool TestImportExport() {
-  std::vector<double> weights(2);
-  std::vector<VectorXd> means(2);
-  std::vector<MatrixXd> covs(2);
+  const int rank = 2;
+  const int dim = 3;
+  VectorXd weights = VectorXd::Zero(rank);
+  MatrixXd means = MatrixXd::Zero(dim, rank);
+  MatrixXd covs = MatrixXd::Zero(dim, dim * rank);
 
-  weights[0] = 0.1;
-  weights[1] = 0.9;
+  weights << 0.1, 0.9;
+  means << 1, 2, 3;
+  means << 3, 2, 1;
 
-  means[0] = VectorXd::Zero(3);
-  means[0] << 1, 2, 3;
-  means[1] = VectorXd::Zero(3);
-  means[1] << 3, 2, 1;
-
-  covs[0] = MatrixXd::Identity(3, 3);
-  covs[1] = MatrixXd::Zero(3, 3);
-  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 32.4796258609215869,
-    110.549260960654465, -152.033658539600196, 31.6838227860951349,
-    -152.033658539600196, 373.530902783367878;
+  covs.leftCols(dim) = MatrixXd::Identity(3, 3);
+  covs.rightCols(dim) << 100, 32.4796258609215869, 31.6838227860951349,
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    31.6838227860951349, -152.033658539600196, 373.530902783367878;
 
   mix m;
   m.Initialize(weights, means, covs);
@@ -272,23 +269,20 @@ bool TestImportExport() {
 }
 
 bool TestDumpLoad() {
-  std::vector<double> weights(2);
-  std::vector<VectorXd> means(2);
-  std::vector<MatrixXd> covs(2);
+  const int rank = 2;
+  const int dim = 3;
+  VectorXd weights = VectorXd::Zero(rank);
+  MatrixXd means = MatrixXd::Zero(dim, rank);
+  MatrixXd covs = MatrixXd::Zero(dim, dim * rank);
 
-  weights[0] = 0.1;
-  weights[1] = 0.9;
+  weights << 0.1, 0.9;
+  means << 1, 2, 3;
+  means << 3, 2, 1;
 
-  means[0] = VectorXd::Zero(3);
-  means[0] << 1, 2, 3;
-  means[1] = VectorXd::Zero(3);
-  means[1] << 3, 2, 1;
-
-  covs[0] = MatrixXd::Identity(3, 3);
-  covs[1] = MatrixXd::Zero(3, 3);
-  covs[1] << 100, 32.4796258609215869, 31.6838227860951349, 32.4796258609215869,
-    110.549260960654465, -152.033658539600196, 31.6838227860951349,
-    -152.033658539600196, 373.530902783367878;
+  covs.leftCols(dim) = MatrixXd::Identity(3, 3);
+  covs.rightCols(dim) << 100, 32.4796258609215869, 31.6838227860951349,
+    32.4796258609215869, 110.549260960654465, -152.033658539600196,
+    31.6838227860951349, -152.033658539600196, 373.530902783367878;
 
   mix m;
   m.Initialize(weights, means, covs);
@@ -331,19 +325,8 @@ bool TestSpitSwallow() {
 
 #define EPS 1.0e-2
 
-inline bool eq(const std::vector<double>& a, const std::vector<double>& b) {
-  if (a.size() != b.size()) {
-    return false;
-  }
-  for (int i = 0; i < (int)a.size(); i++) {
-    if (fabs(a[i] - b[i]) > EPS) {
-      return false;
-    }
-  }
-  return true;
-}
-
-inline bool eq(const VectorXd& a, const VectorXd& b) {
+template <typename T1, typename T2>
+inline bool eq(const T1& a, const T2& b) {
   if (a.size() != b.size()) {
     return false;
   }
@@ -356,15 +339,7 @@ inline bool eq(const VectorXd& a, const VectorXd& b) {
 }
 
 inline bool eq(const MatrixXd& a, const MatrixXd& b) {
-  if (a.size() != b.size()) {
-    return false;
-  }
-  for (int i = 0; i < (int)a.size(); i++) {
-    if (fabs(a.data()[i] - b.data()[i]) > EPS) {
-      return false;
-    }
-  }
-  return true;
+  return a.size() == b.size() ? (a - b).lpNorm<Infinity>() <= EPS : false;
 }
 
 // Functional Verification Test
@@ -438,7 +413,7 @@ bool FVTest() {
   if (m.Dim() != DIM) {
     return false;
   }
-  if (!eq(p->GetWeights(), {0.5, 0.3333, 0.1667})) {
+  if (!eq(p->GetWeights(), std::vector<double>({0.5, 0.3333, 0.1667}))) {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
@@ -488,7 +463,7 @@ bool FVTest() {
   if (m.Dim() != DIM) {
     return false;
   }
-  if (!eq(p->GetWeights(), {0.5, 0.3333, 0.1667})) {
+  if (!eq(p->GetWeights(), std::vector<double>({0.5, 0.3333, 0.1667}))) {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
@@ -514,16 +489,16 @@ bool TestBatchPredict() {
   const int N = 10000;
   const int K = 16;
 
-  std::vector<double> weights(RANK);
-  std::vector<VectorXd> means(RANK);
-  std::vector<MatrixXd> covs(RANK);
+  VectorXd weights(RANK);
+  MatrixXd means(DIM, RANK);
+  MatrixXd covs(DIM, DIM * RANK);
   std::vector<MVNGenerator> generators(RANK);
 
   for (int i = 0; i < RANK; i++) {
-    weights[i] = 1.0 / RANK;
-    means[i] = VectorXd::Ones(DIM) * i * 10;
-    covs[i] = MatrixXd::Identity(DIM, DIM);
-    generators[i].Init(means[i], covs[i]);
+    weights(i) = 1.0 / RANK;
+    means.col(i) = VectorXd::Ones(DIM) * i * 10;
+    covs.middleCols(DIM * i, DIM) = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means.col(i), covs.middleCols(DIM * i, DIM));
   }
 
   Model m(RANK, DIM);
@@ -592,16 +567,16 @@ bool TestBatchTrain() {
   const int DIM = 256;
   const int N = 10000;
 
-  std::vector<double> weights(RANK);
-  std::vector<VectorXd> means(RANK);
-  std::vector<MatrixXd> covs(RANK);
+  VectorXd weights(RANK);
+  MatrixXd means(DIM, RANK);
+  MatrixXd covs(DIM, DIM * RANK);
   std::vector<MVNGenerator> generators(RANK);
 
   for (int i = 0; i < RANK; i++) {
-    weights[i] = 1.0 / RANK;
-    means[i] = VectorXd::Ones(DIM) * i * 10;
-    covs[i] = MatrixXd::Identity(DIM, DIM);
-    generators[i].Init(means[i], covs[i]);
+    weights(i) = 1.0 / RANK;
+    means.col(i) = VectorXd::Ones(DIM) * i * 10;
+    covs.middleCols(DIM * i, DIM) = MatrixXd::Identity(DIM, DIM);
+    generators[i].Init(means.col(i), covs.middleCols(DIM * i, DIM));
   }
 
   Model m1(RANK, DIM);
@@ -667,12 +642,15 @@ bool TestBatchTrain() {
 }
 
 void DebugPredict() {
-  std::vector<double> weights = {1.0 / 3, 1.0 / 3, 1.0 / 3};
-  std::vector<VectorXd> means = {
-    -10 * VectorXd::Ones(3), VectorXd::Zero(3), 10 * VectorXd::Ones(3)};
-  std::vector<MatrixXd> covs = {MatrixXd::Identity(3, 3),
-                                MatrixXd::Identity(3, 3),
-                                MatrixXd::Identity(3, 3)};
+  VectorXd weights(3);
+  weights << 1.0 / 3, 1.0 / 3, 1.0 / 3;
+
+  MatrixXd means(3, 3);
+  means << -10, -10, -10, 0, 0, 0, 10, 10, 10;
+
+  MatrixXd covs(3, 9);
+  covs << 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1,
+    0, 0, 0, 1;
 
   MatrixXd samples = MatrixXd::Ones(3, 3);
   samples.col(0) *= -10;
@@ -712,16 +690,19 @@ void DebugPredict() {
 }
 
 void DebugTrain() {
-  std::vector<double> weights = {1.0 / 3, 1.0 / 3, 1.0 / 3};
-  std::vector<VectorXd> means = {
-    -10 * VectorXd::Ones(3), VectorXd::Zero(3), 10 * VectorXd::Ones(3)};
-  std::vector<MatrixXd> covs = {MatrixXd::Identity(3, 3),
-                                MatrixXd::Identity(3, 3),
-                                MatrixXd::Identity(3, 3)};
+  VectorXd weights(3);
+  weights << 1.0 / 3, 1.0 / 3, 1.0 / 3;
+
+  MatrixXd means(3, 3);
+  means << -10, -10, -10, 0, 0, 0, 10, 10, 10;
+
+  MatrixXd covs(3, 9);
+  covs << 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1,
+    0, 0, 0, 1;
 
   std::vector<MVNGenerator> generators(3);
   for (int i = 0; i < 3; i++) {
-    generators[i].Init(means[i], covs[i], i + 1);
+    generators[i].Init(means.col(i), covs.middleCols(3 * i, 3), i + 1);
   }
 
   const int N = 100;

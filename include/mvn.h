@@ -35,6 +35,9 @@ using Eigen::Success;
 using Eigen::VectorXd;
 using Eigen::VectorXf;
 
+using MatrixXdRef = Eigen::Ref<const Eigen::MatrixXd>;
+using VectorXdRef = Eigen::Ref<const Eigen::VectorXd>;
+
 using json = nlohmann::ordered_json;
 
 /*
@@ -183,7 +186,7 @@ class mix {
 
   // 获取初始化状态
   bool Initialized() const {
-    return cores.size() > 0;
+    return weights.size() > 0;
   }
 
   // 获取阶数
@@ -197,25 +200,29 @@ class mix {
   }
 
   // 获取权重
-  std::vector<double> GetWeights() const {
+  const VectorXd& GetWeights() const {
     return weights;
   }
 
   // 获取内核
-  std::vector<mvn> GetCores() const {
+  const std::vector<mvn>& GetCores() const {
     return cores;
   }
 
   // 初始化
-  void Initialize(const std::vector<double>& weights,
-                  const std::vector<VectorXd>& means,
-                  const std::vector<MatrixXd>& covs) {
+  void Initialize(const VectorXdRef& weights,
+                  const MatrixXdRef& means,
+                  const MatrixXdRef& covs) {
     rank = (int)weights.size();
-    dim = means.size() > 0 ? (int)means[0].size() : 0;
+    dim = (int)means.rows();
+    assert(rank > 0 && dim > 0);
+    assert(means.cols() == rank);
+    assert(covs.rows() == dim);
+    assert(covs.cols() == dim * rank);
     this->weights = weights;
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
-      cores[i].Initialize(means[i], covs[i]);
+      cores[i].Initialize(means.col(i), covs.middleCols(dim * i, dim));
     }
   }
 
@@ -224,14 +231,13 @@ class mix {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
     for (int i = 0; i < rank; i++) {
-      w[i] = cores[i].Evaluate(x);
+      w(i) = cores[i].Evaluate(x);
     }
+    w.array() += weights.array().log();
     double wmax = w.maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * std::exp(w[i] - wmax);
-    }
+    w = (w.array() - wmax).exp();
     double sum = w.sum();
-    w.array() /= sum;
+    w /= sum;
     return std::log(sum) + wmax;
   }
 
@@ -241,8 +247,9 @@ class mix {
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchEvaluate(X).array() + std::log(weights[i]);
+      W.col(i) = cores[i].BatchEvaluate(X);
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
@@ -250,7 +257,7 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // 快速批量计算对数概率密度和分类权重
+  // TODO: 快速批量计算对数概率密度和分类权重
   VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
@@ -267,7 +274,7 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // 计算对数边缘概率密度和条件期望
+  // TODO: 计算对数边缘概率密度和条件期望
   double Predict(const VectorXdRef& x, VectorXd& y) const {
     assert((int)x.size() <= dim);
     std::vector<VectorXd> v(rank);
@@ -276,9 +283,7 @@ class mix {
       w[i] = cores[i].Predict(x, v[i]);
     }
     double wmax = w.maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * std::exp(w[i] - wmax);
-    }
+    w = weights.array() * (w.array() - wmax).exp();
     double sum = w.sum();
     y.resize(dim - x.size());
     y.setZero();
@@ -288,7 +293,7 @@ class mix {
     return std::log(sum) + wmax;
   }
 
-  // 批量计算对数边缘概率密度和条件期望
+  // TODO: 批量计算对数边缘概率密度和条件期望
   VectorXd BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
@@ -310,7 +315,7 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // 快速计算对数边缘概率密度和条件期望
+  // TODO: 快速计算对数边缘概率密度和条件期望
   VectorXd FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
     assert((int)X.rows() <= dim);
     std::vector<MatrixXd> V(rank);
@@ -332,7 +337,7 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // 计算条件期望和条件协方差
+  // TODO: 计算条件期望和条件协方差
   double PredictEx(const VectorXdRef& x, VectorXd& y, MatrixXd& cov) const {
     assert((int)x.size() <= dim);
     std::vector<VectorXd> v(rank);
@@ -341,9 +346,7 @@ class mix {
       w[i] = cores[i].Predict(x, v[i]);
     }
     double wmax = w.maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      w[i] = weights[i] * std::exp(w[i] - wmax);
-    }
+    w = weights.array() * (w.array() - wmax).exp();
     double sum = w.sum();
     y.resize(dim - x.size());
     y.setZero();
@@ -362,7 +365,7 @@ class mix {
     return std::log(sum) + wmax;
   }
 
-  // 批量计算条件期望和条件协方差
+  // TODO: 批量计算条件期望和条件协方差
   VectorXd BatchPredictEx(const MatrixXdRef& X,
                           MatrixXd& Y,
                           MatrixXd& COV) const {
@@ -399,7 +402,7 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // 批量快速计算条件期望和条件协方差
+  // TODO: 批量快速计算条件期望和条件协方差
   VectorXd FastPredictEx(const MatrixXdRef& X,
                          MatrixXd& Y,
                          MatrixXd& COV) const {
@@ -444,14 +447,14 @@ class mix {
     }
     j["r"] = rank;
     j["d"] = dim;
-    j["w"] = weights;
+    j["w"] = std::vector<double>(weights.begin(), weights.end());
     j["c"] = {};
     for (int i = 0; i < rank; i++) {
-      std::vector<double> mu(dim);
-      Map<VectorXd>(mu.data(), dim) = cores[i].getu();
+      auto& u = cores[i].getu();
+      auto& l = cores[i].getl();
+      std::vector<double> mu(u.begin(), u.end());
       std::vector<double> sigma(dim * dim);
-      Map<MatrixXd>(sigma.data(), dim, dim) =
-        cores[i].getl() * cores[i].getl().transpose();
+      Map<MatrixXd>(sigma.data(), dim, dim) = l * l.transpose();
       j["c"].push_back({{"u", mu}, {"s", sigma}});
     }
     return j.dump();
@@ -483,7 +486,7 @@ class mix {
       }
       rank = r;
       dim = d;
-      weights = w;
+      weights = Map<const VectorXd>(w.data(), w.size());
       cores = c;
       return true;
     } catch (...) {
@@ -534,7 +537,7 @@ class mix {
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      Map<VectorXd>((double*)p, dim) = cores[i].getu();
+      memcpy(p, cores[i].getu().data(), sizeof(double) * dim);
       p += sizeof(double) * dim;
       Map<MatrixXd>((double*)p, dim, dim) =
         cores[i].getl() * cores[i].getl().transpose();
@@ -550,8 +553,7 @@ class mix {
     }
     // 检查数据头
     const char* p = input.data();
-    int magic = *(int*)p;
-    if (magic != MAGIC) {
+    if (*(int*)p != MAGIC) {
       return false;
     }
     p += sizeof(int) * 2;
@@ -568,7 +570,7 @@ class mix {
     // 加载模型
     rank = r;
     dim = d;
-    weights.assign((double*)p, (double*)p + rank);
+    weights = Map<const VectorXd>((double*)p, rank);
     p += sizeof(double) * rank;
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
@@ -584,7 +586,7 @@ class mix {
  protected:
   int rank;
   int dim;
-  std::vector<double> weights;
+  VectorXd weights;
   std::vector<mvn> cores;
 };
 
@@ -594,14 +596,7 @@ class mix {
 class trainer {
  public:
   // 构造函数
-  trainer(mix& m)
-    : m(m),
-      rank(m.Rank()),
-      dim(m.Dim()),
-      entropy(0),
-      weights(m.Rank()),
-      means(m.Rank()),
-      covs(m.Rank()) {
+  trainer(mix& m) : m(m), rank(m.Rank()), dim(m.Dim()) {
     assert(rank > 0 && dim > 0);
     Reset();
   }
@@ -611,16 +606,24 @@ class trainer {
     if (m.Initialized()) {
       VectorXd temp = VectorXd::Zero(rank);
       entropy -= m.Evaluate(sample, temp);
-      MatrixXd quadric = (sample * sample.transpose()).selfadjointView<Lower>();
+      weights += temp;
+      means += sample * temp.transpose();
+#if 1
+      const MatrixXd quadric = sample * sample.transpose();
       for (int i = 0; i < rank; i++) {
-        weights[i] += temp[i];
-        means[i] += sample * temp[i];
-        covs[i] += (quadric * temp[i]).selfadjointView<Lower>();
+        covs.middleCols(dim * i, dim).noalias() += temp(i) * quadric;
       }
+#else
+      for (int i = 0; i < rank; i++) {
+        covs.middleCols(dim * i, dim)
+          .selfadjointView<Lower>()
+          .rankUpdate(sample, temp(i));
+      }
+#endif
     } else {
-      weights[0] += 1.0;
-      means[0] += sample;
-      covs[0].selfadjointView<Lower>().rankUpdate(sample);
+      weights(0) += 1.0;
+      means.col(0) += sample;
+      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(sample);
     }
   }
 
@@ -631,39 +634,36 @@ class trainer {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
+      weights += W.colwise().sum();
+      means += samples * W;
+      MatrixXd temp = MatrixXd::Zero(samples.rows(), samples.cols());
       for (int i = 0; i < rank; i++) {
-        weights[i] += W.col(i).sum();
-        means[i] += samples * W.col(i);
-        MatrixXd m =
-          samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        covs[i].selfadjointView<Lower>().rankUpdate(m);
+        temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
+        covs.middleCols(dim * i, dim).selfadjointView<Lower>().rankUpdate(temp);
       }
     } else {
-      weights[0] += samples.cols();
-      means[0] += samples.rowwise().sum();
-      covs[0].selfadjointView<Lower>().rankUpdate(samples);
+      weights(0) += samples.cols();
+      means.col(0) += samples.rowwise().sum();
+      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(samples);
     }
   }
 
-  // 快速批量添加样本
+  // TODO: 快速批量添加样本
   void FastTrain(const MatrixXdRef& samples) {
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
+      weights += W.colwise().sum();
+      means += samples * W;
+      MatrixXd temp = MatrixXd::Zero(samples.rows(), samples.rows());
       for (int i = 0; i < rank; i++) {
-        weights[i] += W.col(i).sum();
-        means[i] += samples * W.col(i);
-        MatrixXf quadric = MatrixXf::Zero(samples.rows(), samples.rows());
-        MatrixXf m =
-          (samples.array().rowwise() * W.col(i).transpose().array().sqrt())
-            .cast<float>();
-        quadric.selfadjointView<Lower>().rankUpdate(m);
-        covs[i] += quadric.cast<double>().selfadjointView<Lower>();
+        temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
+        covs.middleCols(dim * i, dim) += temp * temp.transpose();
       }
     } else {
-      weights[0] += samples.cols();
-      means[0] += samples.rowwise().sum();
-      covs[0].selfadjointView<Lower>().rankUpdate(samples);
+      weights(0) += samples.cols();
+      means.col(0) += samples.rowwise().sum();
+      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(samples);
     }
   }
 
@@ -672,12 +672,10 @@ class trainer {
     if (t.rank != rank || t.dim != dim) {
       return false;
     }
-    entropy += t.entropy * w;
-    for (int i = 0; i < rank; i++) {
-      weights[i] += t.weights[i] * w;
-      means[i] += t.means[i] * w;
-      covs[i] += (t.covs[i] * w).selfadjointView<Lower>();
-    }
+    entropy += w * t.entropy;
+    weights += w * t.weights;
+    means += w * t.means;
+    covs += w * t.covs;
     return true;
   }
 
@@ -687,15 +685,15 @@ class trainer {
     j["r"] = rank;
     j["d"] = dim;
     j["e"] = entropy;
-    j["w"] = weights;
+    j["w"] = std::vector<double>(weights.begin(), weights.end());
     j["m"] = {};
     j["c"] = {};
     for (int i = 0; i < rank; i++) {
-      std::vector<double> m(dim);
-      Map<VectorXd>(m.data(), dim) = means[i];
+      std::vector<double> m(means.col(i).begin(), means.col(i).end());
       j["m"].push_back(m);
       std::vector<double> c(dim * dim);
-      Map<MatrixXd>(c.data(), dim, dim) = covs[i];
+      Map<MatrixXd>(c.data(), dim, dim) =
+        covs.middleCols(dim * i, dim).selfadjointView<Lower>();
       j["c"].push_back(c);
     }
     return j.dump();
@@ -720,20 +718,19 @@ class trainer {
       if ((int)j["c"].size() != rank) {
         return false;
       }
-      entropy += (double)j["e"] * w;
+      entropy += w * (double)j["e"];
       for (int i = 0; i < rank; i++) {
-        weights[i] += (double)j["w"][i] * w;
+        weights(i) += w * (double)j["w"][i];
         std::vector<double> m = j["m"][i];
         if ((int)m.size() != dim) {
           return false;
         }
-        means[i] += Map<VectorXd>(m.data(), dim) * w;
+        means.col(i) += w * Map<VectorXd>(m.data(), dim);
         std::vector<double> c = j["c"][i];
         if ((int)c.size() != dim * dim) {
           return false;
         }
-        covs[i] +=
-          (Map<MatrixXd>(c.data(), dim, dim) * w).selfadjointView<Lower>();
+        covs.middleCols(dim * i, dim) += w * Map<MatrixXd>(c.data(), dim, dim);
       }
       return true;
     } catch (...) {
@@ -744,29 +741,30 @@ class trainer {
   // 更新模型（对角线加载为可选项）
   double Update(double noise_floor = 0.0) {
     if (m.Initialized()) {
-      double s = std::accumulate(weights.begin(), weights.end(), 0.0);
+      double s = weights.sum();
       entropy /= s;
+      means.array().rowwise() /= weights.transpose().array();
       for (int i = 0; i < rank; i++) {
-        means[i] *= (1.0 / weights[i]);
-        covs[i] *= (1.0 / weights[i]);
-        covs[i].selfadjointView<Lower>().rankUpdate(means[i], -1.0);
-        covs[i].diagonal().array() += noise_floor * noise_floor;
-        weights[i] /= s;
+        Ref<MatrixXd> c = covs.middleCols(dim * i, dim);
+        c /= weights(i);
+        c.selfadjointView<Lower>().rankUpdate(means.col(i), -1.0);
+        c.diagonal().array() += noise_floor * noise_floor;
       }
+      weights /= s;
       m.Initialize(weights, means, covs);
       return entropy;
     } else {
       // 随机初始化
-      const double s = weights[0];
-      means[0] *= (1.0 / s);
-      covs[0] *= (1.0 / s);
-      covs[0].selfadjointView<Lower>().rankUpdate(means[0], -1.0);
-      covs[0].diagonal().array() += noise_floor * noise_floor;
-      MVNGenerator gen(means[0], covs[0]);
+      const double s = weights(0);
+      VectorXd u = means.col(0) / s;
+      MatrixXd c = covs.leftCols(dim) / s;
+      c.selfadjointView<Lower>().rankUpdate(u, -1.0);
+      c.diagonal().array() += noise_floor * noise_floor;
+      MVNGenerator gen(u, c);
       for (int i = 0; i < rank; i++) {
-        weights[i] = 1.0 / rank;
-        means[i] = gen.Gen();
-        covs[i] = covs[0];
+        weights(i) = 1.0 / rank;
+        means.col(i) = gen.Gen();
+        covs.middleCols(dim * i, dim) = c;
       }
       m.Initialize(weights, means, covs);
       return std::numeric_limits<double>::infinity();
@@ -786,22 +784,18 @@ class trainer {
   // 输出
   void Print() {
     for (int i = 0; i < rank; i++) {
-      std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "m:\n" << means[i] << "\n";
-      std::cout << "s:\n" << covs[i] << "\n";
+      std::cout << i << ": " << weights(i) << "\n";
+      std::cout << "m:\n" << means.col(i) << "\n";
+      std::cout << "s:\n" << covs.middleCols(dim * i, dim) << "\n";
     }
   }
 
   // 清空记忆
   void Reset() {
     entropy = 0;
-    for (int i = 0; i < rank; i++) {
-      weights[i] = 0.0;
-      means[i].resize(dim);
-      means[i].setZero();
-      covs[i].resize(dim, dim);
-      covs[i].setZero();
-    }
+    weights.setZero(rank);
+    means.setZero(dim, rank);
+    covs.setZero(dim, dim * rank);
   }
 
   // 以二进制导出训练结果
@@ -819,9 +813,10 @@ class trainer {
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      Map<VectorXd>((double*)p, dim) = means[i];
+      memcpy(p, means.col(i).data(), sizeof(double) * dim);
       p += sizeof(double) * dim;
-      Map<MatrixXd>((double*)p, dim, dim) = covs[i];
+      Map<MatrixXd>((double*)p, dim, dim) =
+        covs.middleCols(dim * i, dim).selfadjointView<Lower>();
       p += sizeof(double) * dim * dim;
     }
     return output;
@@ -847,18 +842,14 @@ class trainer {
       return false;
     }
     // 合并结果
-    entropy += *(double*)p * w;
+    entropy += w * (*(double*)p);
     p += sizeof(double);
+    weights += w * Map<VectorXd>((double*)p, rank);
+    p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      weights[i] += *(double*)p * w;
-      p += sizeof(double);
-    }
-    for (int i = 0; i < rank; i++) {
-      auto u = Map<VectorXd>((double*)p, dim);
-      means[i] += u * w;
+      means.col(i) += w * Map<VectorXd>((double*)p, dim);
       p += sizeof(double) * dim;
-      auto s = Map<MatrixXd>((double*)p, dim, dim);
-      covs[i] += (s * w).selfadjointView<Lower>();
+      covs.middleCols(dim * i, dim) += w * Map<MatrixXd>((double*)p, dim, dim);
       p += sizeof(double) * dim * dim;
     }
     return true;
@@ -869,9 +860,9 @@ class trainer {
   int rank;
   int dim;
   double entropy;
-  std::vector<double> weights;
-  std::vector<VectorXd> means;
-  std::vector<MatrixXd> covs;
+  VectorXd weights;
+  MatrixXd means;
+  MatrixXd covs;
 };
 
 }  // namespace aha
