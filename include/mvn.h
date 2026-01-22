@@ -608,18 +608,11 @@ class trainer {
       entropy -= m.Evaluate(sample, temp);
       weights += temp;
       means += sample * temp.transpose();
-#if 1
-      const MatrixXd quadric = sample * sample.transpose();
-      for (int i = 0; i < rank; i++) {
-        covs.middleCols(dim * i, dim).noalias() += temp(i) * quadric;
-      }
-#else
       for (int i = 0; i < rank; i++) {
         covs.middleCols(dim * i, dim)
           .selfadjointView<Lower>()
           .rankUpdate(sample, temp(i));
       }
-#endif
     } else {
       weights(0) += 1.0;
       means.col(0) += sample;
@@ -655,10 +648,11 @@ class trainer {
       entropy -= m.FastEvaluate(samples, W).sum();
       weights += W.colwise().sum();
       means += samples * W;
-      MatrixXd temp = MatrixXd::Zero(samples.rows(), samples.rows());
       for (int i = 0; i < rank; i++) {
-        temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        covs.middleCols(dim * i, dim) += temp * temp.transpose();
+        auto temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
+        covs.middleCols(dim * i, dim)
+            .selfadjointView<Lower>()
+            .rankUpdate(temp.matrix());
       }
     } else {
       weights(0) += samples.cols();

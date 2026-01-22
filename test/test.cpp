@@ -327,7 +327,7 @@ bool TestSpitSwallow() {
 
 template <typename T1, typename T2>
 inline bool eq(const T1& a, const T2& b) {
-  if (a.size() != b.size()) {
+  if ((int)a.size() != (int)b.size()) {
     return false;
   }
   for (int i = 0; i < (int)a.size(); i++) {
