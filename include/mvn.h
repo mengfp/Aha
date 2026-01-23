@@ -68,7 +68,6 @@ class mvn {
     assert(llt.info() == Success);
     u = mu;
     l = llt.matrixL();
-    l_inverse = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
     c.resize(n);
     double d = 0.0;
     for (int i = 0; i < n; i++) {
@@ -80,14 +79,14 @@ class mvn {
   // 计算对数概率密度
   double Evaluate(const VectorXdRef& x) const {
     assert(x.size() == u.size());
-    return -0.5 * (l_inverse.triangularView<Lower>() * (x - u)).squaredNorm() +
+    return -0.5 * l.triangularView<Lower>().solve(x - u).squaredNorm() +
            c(c.size() - 1);
   }
 
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    return -0.5 * (l_inverse.triangularView<Lower>() * (X.colwise() - u))
+    return -0.5 * l.triangularView<Lower>().solve(X.colwise() - u)
                     .colwise()
                     .squaredNorm()
                     .array() +
@@ -97,14 +96,10 @@ class mvn {
   // 快速批量计算对数概率密度
   VectorXd FastEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    auto _u = u.cast<float>();
-    auto _l = l.cast<float>();
-    return -0.5 * _l.triangularView<Lower>()
-                    .solve(X.cast<float>().colwise() - _u)
+    return -0.5 * l.cast<float>().triangularView<Lower>().solve(X.cast<float>().colwise() - u.cast<float>())
                     .colwise()
                     .squaredNorm()
-                    .array()
-                    .cast<double>() +
+                    .array().cast<double>() +
            c(c.size() - 1);
   }
 
@@ -171,7 +166,6 @@ class mvn {
  protected:
   VectorXd u;
   MatrixXd l;
-  MatrixXd l_inverse;
   VectorXd c;
 };
 
@@ -603,6 +597,8 @@ class trainer {
 
   // 添加一个样本
   void Train(const VectorXdRef& sample) {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       VectorXd temp = VectorXd::Zero(rank);
       entropy -= m.Evaluate(sample, temp);
@@ -643,6 +639,8 @@ class trainer {
 
   // TODO: 快速批量添加样本
   void FastTrain(const MatrixXdRef& samples) {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
