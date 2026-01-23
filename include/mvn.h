@@ -602,6 +602,7 @@ class trainer {
 
   // 添加一个样本
   void Train(const VectorXdRef& sample) {
+    assert(sample.size() == dim);
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
@@ -623,6 +624,7 @@ class trainer {
 
   // 批量添加样本
   void BatchTrain(const MatrixXdRef& samples) {
+    assert(samples.rows() == dim);
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
@@ -644,24 +646,22 @@ class trainer {
 
   // 批量添加样本（单精度）
   void FastTrain(const MatrixXfRef& samples) {
+    assert(samples.rows() == dim);
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
       weights += W.colwise().sum();
-      auto s = samples.cast<double>();
-      means += s * W;
-      MatrixXd temp = MatrixXd::Zero(s.rows(), s.cols());
+      means += (samples * W.cast<float>()).cast<double>();
       for (int i = 0; i < rank; i++) {
-        temp = s.array().rowwise() * W.col(i).transpose().array().sqrt();
-        covs.middleCols(dim * i, dim).selfadjointView<Lower>().rankUpdate(temp);
+        MatrixXf temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt().cast<float>();
+        covs.middleCols(dim * i, dim).triangularView<Lower>() += (temp * temp.transpose()).cast<double>();
       }
     } else {
       weights(0) += samples.cols();
-      auto s = samples.cast<double>();
-      means.col(0) += s.rowwise().sum();
-      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(s);
+      means.col(0) += samples.cast<double>().rowwise().sum();
+      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(samples.cast<double>());
     }
   }
 
