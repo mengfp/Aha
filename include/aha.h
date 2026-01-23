@@ -59,7 +59,7 @@ class Trainer {
   double Update(double noise_floor = 0.0);
   void Reset();
   void BatchTrain(const MatrixXdRef& samples);
-  void FastTrain(const MatrixXdRef& samples);
+  void FastTrain(const MatrixXfRef& samples);
   std::vector<char> Dump() const;
   bool Load(const std::vector<char>& input, double w = 1.0);
 

@@ -625,9 +625,9 @@ bool TestBatchTrain() {
   Timer t_fast("FastTrain");
   t_fast.start();
   t3.Reset();
-  // ·Ö¿é¼ÆËã¿ÉÌá¸ß¾«¶È
+  // åˆ†å—è®¡ç®—å¯æé«˜ç²¾åº¦
   for (int i = 0; i < data.cols(); i += 250) {
-    t3.FastTrain(data.middleCols(i, 250));
+    t3.FastTrain(data.middleCols(i, 250).cast<float>());
   }
   t3.Update();
   t_fast.stop();
@@ -760,11 +760,11 @@ void DebugTrain() {
     Trainer t(m);
 
     t.Reset();
-    t.FastTrain(samples);
+    t.FastTrain(samples.cast<float>());
     auto e1 = t.Update();
 
     t.Reset();
-    t.FastTrain(samples);
+    t.FastTrain(samples.cast<float>());
     auto e2 = t.Update();
 
     std::cout << e1 << ", " << e2 << std::endl;
@@ -820,9 +820,9 @@ int TestPredicts() {
   return 0;
 }
 
-// ²âÊÔGMMÌõ¼şĞ­·½²î¹À¼Æ
+// æµ‹è¯•GMMæ¡ä»¶åæ–¹å·®ä¼°è®¡
 int TestPredictEx() {
-  // Éú³ÉÑµÁ·Êı¾İ
+  // ç”Ÿæˆè®­ç»ƒæ•°æ®
   int N = 1000000;
   Random rand((uint32_t)std::time(0));
   MatrixXd data(3, N);
@@ -847,13 +847,13 @@ int TestPredictEx() {
     }
   }
 
-  // ÑµÁ·Ä£ĞÍ
+  // è®­ç»ƒæ¨¡å‹
   Model m(3, 3);
   Trainer t(m);
   for (int k = 0; k < 30; k++) {
     t.Reset();
     for (int i = 0; i < N; i += 250) {
-      t.FastTrain(data.middleCols(i, 250));
+      t.FastTrain(data.middleCols(i, 250).cast<float>());
     }
     double e = t.Update();
     std::cout << e << std::endl;
@@ -861,7 +861,7 @@ int TestPredictEx() {
   m.Sort();
   std::cout << m.Export() << std::endl;
 
-  // ¼ÆËãÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // è®¡ç®—æ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   VectorXd x(1);
   x(0) = -1.0;
   VectorXd y(2);
@@ -870,7 +870,7 @@ int TestPredictEx() {
   std::cout << "\nCalulate:\n" << y << std::endl;
   std::cout << "\n" << cov << std::endl;
 
-  // ¼ìÑéÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // æ£€éªŒæ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   VectorXd mean = VectorXd::Zero(2);
   MatrixXd covar = MatrixXd::Zero(2, 2);
   for (int i = 0; i < N; i++) {
@@ -903,9 +903,9 @@ int TestPredictEx() {
   return 0;
 }
 
-// ²âÊÔGMMÌõ¼şĞ­·½²îÅúÁ¿¹À¼Æ
+// æµ‹è¯•GMMæ¡ä»¶åæ–¹å·®æ‰¹é‡ä¼°è®¡
 int TestBatchPredictEx() {
-  // Éú³ÉÑµÁ·Êı¾İ
+  // ç”Ÿæˆè®­ç»ƒæ•°æ®
   int N = 1000000;
   Random rand((uint32_t)std::time(0));
   MatrixXd data(3, N);
@@ -930,13 +930,13 @@ int TestBatchPredictEx() {
     }
   }
 
-  // ÑµÁ·Ä£ĞÍ
+  // è®­ç»ƒæ¨¡å‹
   Model m(3, 3);
   Trainer t(m);
   for (int k = 0; k < 30; k++) {
     t.Reset();
     for (int i = 0; i < N; i += 250) {
-      t.FastTrain(data.middleCols(i, 250));
+      t.FastTrain(data.middleCols(i, 250).cast<float>());
     }
     double e = t.Update();
     std::cout << e << std::endl;
@@ -944,7 +944,7 @@ int TestBatchPredictEx() {
   m.Sort();
   std::cout << m.Export() << std::endl;
 
-  // µ¥²½¼ÆËãÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // å•æ­¥è®¡ç®—æ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   int M = 10000;
   MatrixXd Y(2, M);
   MatrixXd C(2, 2 * M);
@@ -959,7 +959,7 @@ int TestBatchPredictEx() {
   }
   t_single.stop();
 
-  // ÅúÁ¿¼ÆËãÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // æ‰¹é‡è®¡ç®—æ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   MatrixXd _Y(2, 250);
   MatrixXd _C(2, 2 * 250);
   Timer t_batch("Batch");

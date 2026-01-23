@@ -250,25 +250,25 @@ class mix {
       W.col(i) = cores[i].BatchEvaluate(X);
     }
     W.array().rowwise() += weights.transpose().array().log();
-    VectorXd wmax = W.rowwise().maxCoeff();
+    auto wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
-    VectorXd sum = W.rowwise().sum();
+    auto sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
 
   // 批量计算对数概率密度和分类权重（单精度样本）
-  VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
+  VectorXd FastEvaluate(const MatrixXfRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].FastEvaluate(X.cast<float>());
+      W.col(i) = cores[i].FastEvaluate(X);
     }
     W.array().rowwise() += weights.transpose().array().log();
-    VectorXd wmax = W.rowwise().maxCoeff();
+    auto wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
-    VectorXd sum = W.rowwise().sum();
+    auto sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
@@ -643,25 +643,25 @@ class trainer {
   }
 
   // 批量添加样本（单精度）
-  void FastTrain(const MatrixXdRef& samples) {
+  void FastTrain(const MatrixXfRef& samples) {
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
       weights += W.colwise().sum();
-      means += samples * W;
+      auto s = samples.cast<double>();
+      means += s * W;
+      MatrixXd temp = MatrixXd::Zero(s.rows(), s.cols());
       for (int i = 0; i < rank; i++) {
-        auto temp =
-          samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        covs.middleCols(dim * i, dim)
-          .selfadjointView<Lower>()
-          .rankUpdate(temp.matrix());
+        temp = s.array().rowwise() * W.col(i).transpose().array().sqrt();
+        covs.middleCols(dim * i, dim).selfadjointView<Lower>().rankUpdate(temp);
       }
     } else {
       weights(0) += samples.cols();
-      means.col(0) += samples.rowwise().sum();
-      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(samples);
+      auto s = samples.cast<double>();
+      means.col(0) += s.rowwise().sum();
+      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(s);
     }
   }
 

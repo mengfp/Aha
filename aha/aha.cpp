@@ -141,7 +141,7 @@ void Trainer::BatchTrain(const MatrixXdRef& samples) {
   ((trainer*)p)->BatchTrain(samples);
 }
 
-void Trainer::FastTrain(const MatrixXdRef& samples) {
+void Trainer::FastTrain(const MatrixXfRef& samples) {
   ((trainer*)p)->FastTrain(samples);
 }
 
