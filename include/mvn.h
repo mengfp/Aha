@@ -250,9 +250,9 @@ class mix {
       W.col(i) = cores[i].BatchEvaluate(X);
     }
     W.array().rowwise() += weights.transpose().array().log();
-    auto wmax = W.rowwise().maxCoeff();
+    VectorXd wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
-    auto sum = W.rowwise().sum();
+    VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
@@ -266,9 +266,9 @@ class mix {
       W.col(i) = cores[i].FastEvaluate(X);
     }
     W.array().rowwise() += weights.transpose().array().log();
-    auto wmax = W.rowwise().maxCoeff();
+    VectorXd wmax = W.rowwise().maxCoeff();
     W = (W.colwise() - wmax).array().exp();
-    auto sum = W.rowwise().sum();
+    VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
