@@ -86,7 +86,8 @@ class mvn {
   // 批量计算对数概率密度
   VectorXd BatchEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    return -0.5 * l.triangularView<Lower>().solve(X.colwise() - u)
+    return -0.5 * l.triangularView<Lower>()
+                    .solve(X.colwise() - u)
                     .colwise()
                     .squaredNorm()
                     .array() +
@@ -96,10 +97,13 @@ class mvn {
   // 快速批量计算对数概率密度
   VectorXd FastEvaluate(const MatrixXdRef& X) const {
     assert(X.rows() == u.size());
-    return -0.5 * l.cast<float>().triangularView<Lower>().solve(X.cast<float>().colwise() - u.cast<float>())
+    return -0.5 * l.cast<float>()
+                    .triangularView<Lower>()
+                    .solve(X.cast<float>().colwise() - u.cast<float>())
                     .colwise()
                     .squaredNorm()
-                    .array().cast<double>() +
+                    .array()
+                    .cast<double>() +
            c(c.size() - 1);
   }
 
@@ -647,10 +651,11 @@ class trainer {
       weights += W.colwise().sum();
       means += samples * W;
       for (int i = 0; i < rank; i++) {
-        auto temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
+        auto temp =
+          samples.array().rowwise() * W.col(i).transpose().array().sqrt();
         covs.middleCols(dim * i, dim)
-            .selfadjointView<Lower>()
-            .rankUpdate(temp.matrix());
+          .selfadjointView<Lower>()
+          .rankUpdate(temp.matrix());
       }
     } else {
       weights(0) += samples.cols();
