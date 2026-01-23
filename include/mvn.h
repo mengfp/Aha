@@ -37,6 +37,8 @@ using Eigen::VectorXf;
 
 using MatrixXdRef = Eigen::Ref<const Eigen::MatrixXd>;
 using VectorXdRef = Eigen::Ref<const Eigen::VectorXd>;
+using MatrixXfRef = Eigen::Ref<const Eigen::MatrixXf>;
+using VectorXfRef = Eigen::Ref<const Eigen::VectorXf>;
 
 using json = nlohmann::ordered_json;
 
@@ -94,12 +96,12 @@ class mvn {
            c(c.size() - 1);
   }
 
-  // 快速批量计算对数概率密度
-  VectorXd FastEvaluate(const MatrixXdRef& X) const {
+  // 批量计算对数概率密度（单精度）
+  VectorXd FastEvaluate(const MatrixXfRef& X) const {
     assert(X.rows() == u.size());
     return -0.5 * l.cast<float>()
                     .triangularView<Lower>()
-                    .solve(X.cast<float>().colwise() - u.cast<float>())
+                    .solve(X.colwise() - u.cast<float>())
                     .colwise()
                     .squaredNorm()
                     .array()
@@ -255,18 +257,17 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 快速批量计算对数概率密度和分类权重
+  // 批量计算对数概率密度和分类权重（单精度样本）
   VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
     assert(W.rows() == X.cols());
     assert((int)W.cols() == rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].FastEvaluate(X);
+      W.col(i) = cores[i].FastEvaluate(X.cast<float>());
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i).array() - wmax.array()).exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
@@ -641,7 +642,7 @@ class trainer {
     }
   }
 
-  // TODO: 快速批量添加样本
+  // 批量添加样本（单精度）
   void FastTrain(const MatrixXdRef& samples) {
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);

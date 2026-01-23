@@ -16,6 +16,8 @@ using Eigen::Map;
 using Eigen::Ref;
 using MatrixXdRef = Eigen::Ref<const Eigen::MatrixXd>;
 using VectorXdRef = Eigen::Ref<const Eigen::VectorXd>;
+using MatrixXfRef = Eigen::Ref<const Eigen::MatrixXf>;
+using VectorXfRef = Eigen::Ref<const Eigen::VectorXf>;
 
 std::string Version();
 
