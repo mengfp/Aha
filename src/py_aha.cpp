@@ -16,6 +16,7 @@ namespace py = pybind11;
 using namespace aha;
 using namespace Eigen;
 using RowMatrixXdRef = Ref<const Matrix<double, -1, -1, RowMajor>>;
+using RowMatrixXfRef = Ref<const Matrix<float, -1, -1, RowMajor>>;
 
 PYBIND11_MODULE(aha, m) {
   m.attr("__version__") = VERSION;
@@ -118,8 +119,8 @@ PYBIND11_MODULE(aha, m) {
       py::arg("samples"))
     .def(
       "FastTrain",
-      [](Trainer& self, const RowMatrixXdRef& samples) {
-        Map<const MatrixXd> samples_view(
+      [](Trainer& self, const RowMatrixXfRef& samples) {
+        Map<const MatrixXf> samples_view(
           samples.data(), samples.cols(), samples.rows());
         self.FastTrain(samples_view);
       },
