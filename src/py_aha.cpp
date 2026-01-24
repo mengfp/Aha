@@ -121,7 +121,7 @@ PYBIND11_MODULE(aha, m) {
           samples.data(), samples.cols(), samples.rows());
         self.BatchTrain(samples_view);
       },
-      py::arg("samples"))
+      py::arg("samples").noconvert())
     .def(
       "FastTrain",
       [](Trainer& self, RowMatrixXfRef samples) {
@@ -129,7 +129,7 @@ PYBIND11_MODULE(aha, m) {
           samples.data(), samples.cols(), samples.rows());
         self.FastTrain(samples_view);
       },
-      py::arg("samples"))
+      py::arg("samples").noconvert())
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)

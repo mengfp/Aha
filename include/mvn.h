@@ -655,9 +655,10 @@ class trainer {
       entropy -= m.FastEvaluate(samples, W).sum();
       weights += W.colwise().sum();
       means += (samples * W.cast<float>()).cast<double>();
+      MatrixXf temp = MatrixXf::Zero(samples.rows(), samples.cols());
       for (int i = 0; i < rank; i++) {
-        MatrixXf temp = samples.array().rowwise() *
-                        W.col(i).transpose().array().sqrt().cast<float>();
+        temp = samples.array().rowwise() *
+               W.col(i).transpose().array().sqrt().cast<float>();
         covs.middleCols(dim * i, dim).triangularView<Lower>() +=
           (temp * temp.transpose()).cast<double>();
       }
