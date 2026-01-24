@@ -295,36 +295,37 @@ class mix {
   double Predict(Ref<const VectorXd> x, Ref<VectorXd> y) const {
     assert((int)x.size() + (int)y.size() == dim);
     VectorXd w = VectorXd::Zero(rank);
-    MatrixXd Y = MatrixXd::Zero(y.size(), rank);
+    MatrixXd V = MatrixXd::Zero(y.size(), rank);
     for (int i = 0; i < rank; i++) {
-      w(i) = cores[i].Predict(x, Y.col(i));
+      w(i) = cores[i].Predict(x, V.col(i));
     }
     w.array() += weights.array().log();
     double wmax = w.maxCoeff();
     w = (w.array() - wmax).exp();
     double sum = w.sum();
-    y = Y * (w / sum);
+    y = V * (w / sum);
     return std::log(sum) + wmax;
   }
 
-  // TODO: 批量计算对数边缘概率密度和条件期望
-  VectorXd BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+  // 批量计算对数边缘概率密度和条件期望
+  VectorXd BatchPredict(Ref<const MatrixXd> X, Ref<MatrixXd> Y) const {
+    assert(X.cols() == Y.cols());
+    assert((int)X.rows() + (int)Y.rows() == dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchPredict(X, V[i]);
+      W.col(i) = cores[i].BatchPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
+    W.array().colwise() /= sum.array();
     Y.setZero();
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).asDiagonal();
     }
     return sum.array().log() + wmax.array();
   }
