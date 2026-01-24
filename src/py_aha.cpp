@@ -111,7 +111,7 @@ PYBIND11_MODULE(aha, m) {
       py::arg("sample"))
     .def(
       "BatchTrain",
-      [](Trainer& self, const RowMatrixXdRef& samples) {
+      [](Trainer& self, RowMatrixXdRef samples) {
         Map<const MatrixXd> samples_view(
           samples.data(), samples.cols(), samples.rows());
         self.BatchTrain(samples_view);
@@ -119,7 +119,7 @@ PYBIND11_MODULE(aha, m) {
       py::arg("samples"))
     .def(
       "FastTrain",
-      [](Trainer& self, const RowMatrixXfRef& samples) {
+      [](Trainer& self, RowMatrixXfRef samples) {
         Map<const MatrixXf> samples_view(
           samples.data(), samples.cols(), samples.rows());
         self.FastTrain(samples_view);

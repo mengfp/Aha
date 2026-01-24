@@ -1,4 +1,4 @@
-/*
+﻿/*
 ** Copyright 2025 Meng, Fanping. All rights reserved.
 */
 #ifdef _MSC_VER
@@ -417,10 +417,10 @@ bool FVTest() {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].get_u(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].get_l(), generators[i].L)) {
       return false;
     }
   }
@@ -467,10 +467,10 @@ bool FVTest() {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].get_u(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].get_l(), generators[i].L)) {
       return false;
     }
   }
@@ -555,9 +555,9 @@ double distance(const Model& m1, const Model& m2) {
   for (int i = 0; i < m1.Rank(); i++) {
     e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
     e =
-      std::max(e, distance(p1->GetCores()[i].getu(), p2->GetCores()[i].getu()));
+      std::max(e, distance(p1->GetCores()[i].get_u(), p2->GetCores()[i].get_u()));
     e =
-      std::max(e, distance(p1->GetCores()[i].getl(), p2->GetCores()[i].getl()));
+      std::max(e, distance(p1->GetCores()[i].get_l(), p2->GetCores()[i].get_l()));
   }
   return e;
 }
