@@ -27,7 +27,6 @@ class Model {
   int Rank() const;
   int Dim() const;
   double Predict(Ref<const VectorXd> x, VectorXd& y) const;
-  double Predict(const std::vector<double>& x, std::vector<double>& y) const;
   void Sort();
   std::string Export() const;
   bool Import(const std::string& model);
@@ -50,7 +49,6 @@ class Trainer {
   int Rank() const;
   int Dim() const;
   void Train(Ref<const VectorXd> sample);
-  void Train(const std::vector<double>& sample);
   bool Merge(const Trainer& t, double w = 1.0);
   std::string Spit() const;
   bool Swallow(const std::string& t, double w = 1.0);

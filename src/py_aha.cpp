@@ -32,8 +32,8 @@ PYBIND11_MODULE(aha, m) {
     .def("Dim", &Model::Dim)
     .def(
       "Predict",
-      [](const Model& self, const std::vector<double>& x) {
-        std::vector<double> y;
+      [](const Model& self, Ref<VectorXd> x) {
+        VectorXd y;
         auto r = self.Predict(x, y);
         return py::make_tuple(r, y);
       },
@@ -52,9 +52,8 @@ PYBIND11_MODULE(aha, m) {
       [](const Model& self, RowMatrixXdRef x) {
         Map<const MatrixXd> x_view(
           x.data(), x.cols(), x.rows());
-        VectorXd r;
         MatrixXd y;
-        r = self.BatchPredict(x, y);
+        auto r = self.BatchPredict(x, y);
         return py::make_tuple(r, y.transpose());
       },
       py::arg("x"))
@@ -71,9 +70,8 @@ PYBIND11_MODULE(aha, m) {
       "FastPredict",
       [](const Model& self, RowMatrixXfRef x) {
         Map<const MatrixXf> x_view(x.data(), x.cols(), x.rows());
-        VectorXd r;
         MatrixXf y;
-        r = self.FastPredict(x_view, y);
+        auto r = self.FastPredict(x_view, y);
         return py::make_tuple(r, y.transpose());
       },
       py::arg("x"))
@@ -110,7 +108,7 @@ PYBIND11_MODULE(aha, m) {
     .def("Dim", &Trainer::Dim)
     .def(
       "Train",
-      [](Trainer& self, const std::vector<double>& sample) {
+      [](Trainer& self, Ref<VectorXd> sample) {
         return self.Train(sample);
       },
       py::arg("sample"))

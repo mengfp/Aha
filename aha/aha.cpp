@@ -39,15 +39,6 @@ double Model::Predict(Ref<const VectorXd> x, VectorXd& y) const {
   return ((mix*)p)->Predict(x, y);
 }
 
-double Model::Predict(const std::vector<double>& x,
-                      std::vector<double>& y) const {
-  Map<const VectorXd> _x(x.data(), x.size());
-  VectorXd _y;
-  auto r = ((mix*)p)->Predict(_x, _y);
-  y.assign(_y.begin(), _y.end());
-  return r;
-}
-
 void Model::Sort() {
   return ((mix*)p)->Sort();
 }
@@ -110,11 +101,6 @@ int Trainer::Dim() const {
 
 void Trainer::Train(Ref<const VectorXd> sample) {
   ((trainer*)p)->Train(sample);
-}
-
-void Trainer::Train(const std::vector<double>& sample) {
-  Map<const VectorXd> s(sample.data(), sample.size());
-  ((trainer*)p)->Train(s);
 }
 
 bool Trainer::Merge(const Trainer& t, double w) {

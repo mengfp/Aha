@@ -136,7 +136,7 @@ bool TestAha() {
   Trainer trainer(model);
 
   for (int k = 0; k < 30; k++) {
-    std::vector<double> sample(3);
+    VectorXd sample(3);
     trainer.Reset();
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
@@ -149,11 +149,11 @@ bool TestAha() {
   // Test predict
   std::cout << "Test prediction ..." << std::endl;
   for (int k = 0; k < 10; k++) {
-    std::vector<double> sample(3);
+    VectorXd sample(3);
     gen.gen(sample);
     std::cout << "sample: " << sample[0] << " " << sample[1] << " " << sample[2]
               << std::endl;
-    std::vector<double> y;
+    VectorXd y;
     sample.resize(2);
     model.Predict(sample, y);
     std::cout << "prediction: " << y[0] << std::endl;
@@ -168,11 +168,10 @@ bool TestNonLinear() {
   int N = 1000000;
   GenNonLinear gen;
 
-  std::vector<std::vector<double>> samples;
-  std::vector<double> sample(3);
+  MatrixXd samples(3, N);
   for (int i = 0; i < N; i++) {
+    Ref<VectorXd> sample = samples.col(i);
     gen.gen(sample);
-    samples.push_back(sample);
   }
 
   // Train
@@ -180,13 +179,13 @@ bool TestNonLinear() {
   Trainer trainer(model);
 
   auto now = steady_clock::now();
-  for (int k = 0; k < 30; k++) {
+  for (int i = 0; i < 30; i++) {
     trainer.Reset();
-    for (auto& s : samples) {
-      trainer.Train(s);
+    for (int j = 0; j < N; j++) {
+      trainer.Train(samples.col(j));
     }
     auto e = trainer.Update();
-    std::cout << k << ": Entropy = " << e << std::endl;
+    std::cout << i << ": Entropy = " << e << std::endl;
   }
   std::cout << "Train time = "
             << duration<double>(steady_clock::now() - now).count() << std::endl;
@@ -194,11 +193,10 @@ bool TestNonLinear() {
   // Predict
   now = steady_clock::now();
   double d = 0.0;
-  for (auto& s : samples) {
-    std::vector<double> x(&s[0], &s[2]);
-    std::vector<double> y;
-    model.Predict(x, y);
-    d += pow(y[0] - s[2], 2);
+  VectorXd y;
+  for (int i = 0; i < N;  i++) {
+    model.Predict(samples.col(i).head(2), y);
+    d += pow(y(0) - samples.col(i)(2), 2);
   }
   d /= N;
   std::cout << "MSE = " << d << std::endl;
