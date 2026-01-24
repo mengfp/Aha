@@ -532,17 +532,19 @@ bool TestBatchPredict() {
 
   // Fast predict
   VectorXd __r;
-  MatrixXd __Y;
+  MatrixXf __Y;
   Timer t_fast("FastPredict");
   t_fast.start();
-  __r = m.FastPredict(data.topRows(DIM - K), __Y);
+  __r = m.FastPredict(data.topRows(DIM - K).cast<float>(), __Y);
   t_fast.stop();
 
   std::cout << distance(r, _r) << ", " << distance(Y, _Y) << std::endl;
-  std::cout << distance(r, __r) << ", " << distance(Y, __Y) << std::endl;
+  std::cout << distance(r, __r) << ", "
+            << distance(Y, __Y.cast<double>().eval()) << std::endl;
 
   if (distance(r, _r) > 1.0e-6 || distance(Y, _Y) > 1.0e-6 ||
-      distance(r, __r) > 1.0e-3 || distance(Y, __Y) > 1.0e-6)
+      distance(r, __r) > 1.0e-3 ||
+      distance(Y, __Y.cast<double>().eval()) > 1.0e-6)
     return false;
   else
     return true;
@@ -554,10 +556,10 @@ double distance(const Model& m1, const Model& m2) {
   mix* p2 = *(mix**)&m2;
   for (int i = 0; i < m1.Rank(); i++) {
     e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
-    e =
-      std::max(e, distance(p1->GetCores()[i].get_u(), p2->GetCores()[i].get_u()));
-    e =
-      std::max(e, distance(p1->GetCores()[i].get_l(), p2->GetCores()[i].get_l()));
+    e = std::max(
+      e, distance(p1->GetCores()[i].get_u(), p2->GetCores()[i].get_u()));
+    e = std::max(
+      e, distance(p1->GetCores()[i].get_l(), p2->GetCores()[i].get_l()));
   }
   return e;
 }
@@ -681,8 +683,8 @@ void DebugPredict() {
 
   {
     std::cout << "Fast Predict" << std::endl;
-    MatrixXd Y;
-    auto R = m.FastPredict(samples.topRows(2), Y);
+    MatrixXf Y;
+    auto R = m.FastPredict(samples.topRows(2).cast<float>(), Y);
     for (int i = 0; i < 3; i++) {
       std::cout << R[i] << ", " << Y.col(i)[0] << std::endl;
     }
@@ -801,7 +803,7 @@ int TestPredicts() {
     }
   }
 
-  aha::MatrixXd out(20, 3);
+  aha::MatrixXd out;
   aha::VectorXd y;
   model.Predict(in.col(0), y);
   out.col(0) = y;
@@ -814,7 +816,8 @@ int TestPredicts() {
   model.BatchPredict(in, out);
   std::cout << out << std::endl << std::endl;
 
-  model.FastPredict(in, out);
+  aha::MatrixXf outf;
+  model.FastPredict(in.cast<float>(), outf);
   std::cout << out << std::endl;
 
   return 0;

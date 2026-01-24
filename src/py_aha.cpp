@@ -49,9 +49,12 @@ PYBIND11_MODULE(aha, m) {
       py::arg("x"))
     .def(
       "BatchPredict",
-      [](const Model& self, const MatrixXd& x) {
+      [](const Model& self, RowMatrixXdRef x) {
+        Map<const MatrixXd> x_view(
+          x.data(), x.cols(), x.rows());
+        VectorXd r;
         MatrixXd y;
-        auto r = self.BatchPredict(x.transpose(), y);
+        r = self.BatchPredict(x, y);
         return py::make_tuple(r, y.transpose());
       },
       py::arg("x"))
@@ -66,9 +69,11 @@ PYBIND11_MODULE(aha, m) {
       py::arg("x"))
     .def(
       "FastPredict",
-      [](const Model& self, const MatrixXd& x) {
-        MatrixXd y;
-        auto r = self.FastPredict(x.transpose(), y);
+      [](const Model& self, RowMatrixXfRef x) {
+        Map<const MatrixXf> x_view(x.data(), x.cols(), x.rows());
+        VectorXd r;
+        MatrixXf y;
+        r = self.FastPredict(x_view, y);
         return py::make_tuple(r, y.transpose());
       },
       py::arg("x"))

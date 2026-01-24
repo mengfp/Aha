@@ -32,7 +32,7 @@ class Model {
   std::string Export() const;
   bool Import(const std::string& model);
   VectorXd BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const;
-  VectorXd FastPredict(Ref<const MatrixXd> X, MatrixXd& Y) const;
+  VectorXd FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const;
   std::vector<char> Dump() const;
   bool Load(const std::vector<char>& input);
   double PredictEx(Ref<const VectorXd> x, VectorXd& y, MatrixXd& cov) const;

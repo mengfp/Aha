@@ -64,7 +64,7 @@ VectorXd Model::BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
   return ((mix*)p)->BatchPredict(X, Y);
 }
 
-VectorXd Model::FastPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
+VectorXd Model::FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const {
   return ((mix*)p)->FastPredict(X, Y);
 }
 

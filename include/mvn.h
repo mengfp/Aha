@@ -147,30 +147,18 @@ class mvn {
   }
 
   // 批量计算对数边缘概率密度和条件期望（单精度）
-  VectorXd FastPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
-    assert(X.rows() <= u.size());
-    auto n = u.size();
-    auto k = X.rows();
-    MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
-      X.colwise() - u.head(k));
-    Y.noalias() =
-      (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
-    return -0.5 * temp.colwise().squaredNorm().array() + c(k - 1);
-  }
-
-  // 批量计算对数边缘概率密度和条件期望（单精度）
-  VectorXd _FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const {
-    assert(X.rows() <= u.size());
+  VectorXd FastPredict(Ref<const MatrixXf> X, Ref<MatrixXf> Y) const {
+    assert(X.cols() == Y.cols());
+    assert(X.rows() + Y.rows() == u.size());
     auto n = u.size();
     auto k = X.rows();
     MatrixXf temp =
       l.topLeftCorner(k, k).cast<float>().triangularView<Lower>().solve(
         X.colwise() - u.head(k).cast<float>());
     Y.noalias() =
-      ((l.bottomLeftCorner(n - k, k).cast<float>() * temp).colwise() +
-       u.tail(n - k).cast<float>());
-    return -0.5 * temp.cast<double>().colwise().squaredNorm().array() +
-           c(k - 1);
+      (l.bottomLeftCorner(n - k, k).cast<float>() * temp).colwise() +
+      u.tail(n - k).cast<float>();
+    return -0.5 * temp.cast<double>().colwise().squaredNorm().array() + c(k - 1);
   }
 
  public:
@@ -327,24 +315,24 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 快速计算对数边缘概率密度和条件期望
-  VectorXd FastPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
+  // 计算对数边缘概率密度和条件期望（单精度）
+  VectorXd FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const {
     assert((int)X.rows() < dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXf V = MatrixXf::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].FastPredict(X, V[i]);
+      W.col(i) = cores[i].FastPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).cast<float>().asDiagonal();
     }
     return sum.array().log() + wmax.array();
   }
@@ -422,7 +410,7 @@ class mix {
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].FastPredict(X, V[i]);
+      W.col(i) = cores[i].BatchPredict(X, V[i]);
     }
     VectorXd wmax = W.rowwise().maxCoeff();
     for (int i = 0; i < rank; i++) {
