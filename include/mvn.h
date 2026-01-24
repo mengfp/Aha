@@ -292,7 +292,7 @@ class mix {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(Ref<const VectorXd> x, Ref<VectorXd> y) const {
+  double Predict(Ref<const VectorXd> x, VectorXd& y) const {
     assert((int)x.size() + (int)y.size() == dim);
     VectorXd w = VectorXd::Zero(rank);
     MatrixXd V = MatrixXd::Zero(y.size(), rank);
@@ -308,7 +308,7 @@ class mix {
   }
 
   // 批量计算对数边缘概率密度和条件期望
-  VectorXd BatchPredict(Ref<const MatrixXd> X, Ref<MatrixXd> Y) const {
+  VectorXd BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
     assert(X.cols() == Y.cols());
     assert((int)X.rows() + (int)Y.rows() == dim);
     const int k = (int)X.rows();
@@ -323,7 +323,7 @@ class mix {
     W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
-    Y.setZero();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
       Y += V.middleCols(N * i, N) * W.col(i).asDiagonal();
     }
