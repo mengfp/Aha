@@ -260,10 +260,9 @@ class mix {
   }
 
   // 批量计算对数概率密度和分类权重
-  VectorXd BatchEvaluate(Ref<const MatrixXd> X, Ref<MatrixXd> W) const {
+  VectorXd BatchEvaluate(Ref<const MatrixXd> X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
-    assert(W.rows() == X.cols());
-    assert((int)W.cols() == rank);
+    W.resize(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
       W.col(i) = cores[i].BatchEvaluate(X);
     }
@@ -278,8 +277,7 @@ class mix {
   // 批量计算对数概率密度和分类权重（单精度）
   VectorXd FastEvaluate(Ref<const MatrixXf> X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
-    assert(W.rows() == X.cols());
-    assert((int)W.cols() == rank);
+    W.resize(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
       W.col(i) = cores[i].FastEvaluate(X);
     }
@@ -293,9 +291,9 @@ class mix {
 
   // 计算对数边缘概率密度和条件期望
   double Predict(Ref<const VectorXd> x, VectorXd& y) const {
-    assert((int)x.size() + (int)y.size() == dim);
+    assert((int)x.size() < dim);
     VectorXd w = VectorXd::Zero(rank);
-    MatrixXd V = MatrixXd::Zero(y.size(), rank);
+    MatrixXd V = MatrixXd::Zero(dim - (int)x.size(), rank);
     for (int i = 0; i < rank; i++) {
       w(i) = cores[i].Predict(x, V.col(i));
     }
@@ -309,8 +307,7 @@ class mix {
 
   // 批量计算对数边缘概率密度和条件期望
   VectorXd BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
-    assert(X.cols() == Y.cols());
-    assert((int)X.rows() + (int)Y.rows() == dim);
+    assert((int)X.rows() < dim);
     const int k = (int)X.rows();
     const int N = (int)X.cols();
     MatrixXd W = MatrixXd::Zero(N, rank);
@@ -332,7 +329,7 @@ class mix {
 
   // TODO: 快速计算对数边缘概率密度和条件期望
   VectorXd FastPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
-    assert((int)X.rows() <= dim);
+    assert((int)X.rows() < dim);
     std::vector<MatrixXd> V(rank);
     MatrixXd W(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
