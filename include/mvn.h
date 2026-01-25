@@ -158,7 +158,8 @@ class mvn {
     Y.noalias() =
       (l.bottomLeftCorner(n - k, k).cast<float>() * temp).colwise() +
       u.tail(n - k).cast<float>();
-    return -0.5 * temp.cast<double>().colwise().squaredNorm().array() + c(k - 1);
+    return -0.5 * temp.cast<double>().colwise().squaredNorm().array() +
+           c(k - 1);
   }
 
  public:
@@ -280,8 +281,9 @@ class mix {
   // 计算对数边缘概率密度和条件期望
   double Predict(Ref<const VectorXd> x, VectorXd& y) const {
     assert((int)x.size() < dim);
+    const int k = (int)x.size();
     VectorXd w = VectorXd::Zero(rank);
-    MatrixXd V = MatrixXd::Zero(dim - (int)x.size(), rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, rank);
     for (int i = 0; i < rank; i++) {
       w(i) = cores[i].Predict(x, V.col(i));
     }
@@ -289,7 +291,8 @@ class mix {
     double wmax = w.maxCoeff();
     w = (w.array() - wmax).exp();
     double sum = w.sum();
-    y = V * (w / sum);
+    w /= sum;
+    y = V * w;
     return std::log(sum) + wmax;
   }
 
@@ -337,104 +340,94 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 计算条件期望和条件协方差
-  double PredictEx(Ref<const VectorXd> x, VectorXd& y, MatrixXd& cov) const {
-    assert((int)x.size() <= dim);
-    std::vector<VectorXd> v(rank);
-    VectorXd w(rank);
+  // 计算条件期望和条件方差（协方差矩阵的主对角线）
+  double PredictEx(Ref<const VectorXd> x, VectorXd& y, VectorXd& vars) const {
+    assert((int)x.size() < dim);
+    const int k = (int)x.size();
+    VectorXd w = VectorXd::Zero(rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, rank);
     for (int i = 0; i < rank; i++) {
-      w[i] = cores[i].Predict(x, v[i]);
+      w(i) = cores[i].Predict(x, V.col(i));
     }
+    w.array() += weights.array().log();
     double wmax = w.maxCoeff();
-    w = weights.array() * (w.array() - wmax).exp();
+    w = (w.array() - wmax).exp();
     double sum = w.sum();
-    y.resize(dim - x.size());
-    y.setZero();
+    w /= sum;
+    y = V * w;
+    // 计算条件方差
+    vars.setZero(dim - k);
     for (int i = 0; i < rank; i++) {
-      y += (w[i] / sum) * v[i];
-    }
-    // 计算条件协方差
-    cov.resize(y.size(), y.size());
-    cov.setZero();
-    for (int i = 0; i < rank; i++) {
-      auto L = cores[i].get_l().bottomRightCorner(y.size(), y.size());
-      auto _v = v[i] - y;
-      cov += (w[i] / sum) * (L * L.transpose());
-      cov += (w[i] / sum) * (_v * _v.transpose());
+      auto Li = cores[i].get_l().bottomRightCorner(dim - k, dim - k);
+      auto Vi = V.col(i) - y;
+      vars += (Li.rowwise().squaredNorm() + Vi.cwiseAbs2()) * w(i);
     }
     return std::log(sum) + wmax;
   }
 
-  // TODO: 批量计算条件期望和条件协方差
+  // 批量计算条件期望和条件方差（协方差矩阵的主对角线）
   VectorXd BatchPredictEx(Ref<const MatrixXd> X,
                           MatrixXd& Y,
-                          MatrixXd& COV) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+                          MatrixXd& VARS) const {
+    assert((int)X.rows() < dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchPredict(X, V[i]);
+      W.col(i) = cores[i].BatchPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).asDiagonal();
     }
-    // 计算条件协方差
-    COV.resize(Y.rows(), Y.rows() * Y.cols());
-    COV.setZero();
+    // 计算条件方差
+    VARS.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      auto L = cores[i].get_l().bottomRightCorner(Y.rows(), Y.rows());
-      auto C = L * L.transpose();
-      for (int j = 0; j < Y.cols(); j++) {
-        auto _COV = COV.middleCols(COV.rows() * j, COV.rows());
-        auto _V = V[i].col(j) - Y.col(j);
-        _COV += W(j, i) * C;
-        _COV += W(j, i) * (_V * _V.transpose());
-      }
+      auto Li = cores[i].get_l().bottomRightCorner(dim - k, dim - k);
+      auto Vi = V.middleCols(N * i, N) - Y;
+      auto Wi = W.col(i).transpose();
+      VARS += Li.rowwise().squaredNorm() * Wi;
+      VARS.array() += Vi.array().square().rowwise() * Wi.array();
     }
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 批量快速计算条件期望和条件协方差
-  VectorXd FastPredictEx(Ref<const MatrixXd> X,
-                         MatrixXd& Y,
-                         MatrixXd& COV) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+  // 批量计算条件期望和条件方差（单精度）
+  VectorXd FastPredictEx(Ref<const MatrixXf> X,
+                         MatrixXf& Y,
+                         MatrixXf& VARS) const {
+    assert((int)X.rows() < dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXf V = MatrixXf::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchPredict(X, V[i]);
+      W.col(i) = cores[i].FastPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).cast<float>().asDiagonal();
     }
-    // 计算条件协方差
-    COV.resize(Y.rows(), Y.rows() * Y.cols());
-    COV.setZero();
+    // 计算条件方差
+    VARS.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      auto L = cores[i].get_l().bottomRightCorner(Y.rows(), Y.rows());
-      auto C = L * L.transpose();
-      for (int j = 0; j < Y.cols(); j++) {
-        auto _COV = COV.middleCols(COV.rows() * j, COV.rows());
-        auto _V = V[i].col(j) - Y.col(j);
-        _COV += W(j, i) * C;
-        _COV += W(j, i) * (_V * _V.transpose());
-      }
+      auto Li =
+        cores[i].get_l().bottomRightCorner(dim - k, dim - k).cast<float>();
+      auto Vi = V.middleCols(N * i, N) - Y;
+      auto Wi = W.col(i).transpose().cast<float>();
+      VARS += Li.rowwise().squaredNorm() * Wi;
+      VARS.array() += Vi.array().square().rowwise() * Wi.array();
     }
     return sum.array().log() + wmax.array();
   }

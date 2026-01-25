@@ -67,20 +67,22 @@ bool Model::Load(const std::vector<char>& input) {
   return ((mix*)p)->Load(input);
 }
 
-double Model::PredictEx(Ref<const VectorXd> x, VectorXd& y, MatrixXd& cov) const {
-  return ((mix*)p)->PredictEx(x, y, cov);
+double Model::PredictEx(Ref<const VectorXd> x,
+                        VectorXd& y,
+                        VectorXd& vars) const {
+  return ((mix*)p)->PredictEx(x, y, vars);
 }
 
 VectorXd Model::BatchPredictEx(Ref<const MatrixXd> X,
-                             MatrixXd& Y,
-                             MatrixXd& COV) const {
-  return ((mix*)p)->BatchPredictEx(X, Y, COV);
+                               MatrixXd& Y,
+                               MatrixXd& VARS) const {
+  return ((mix*)p)->BatchPredictEx(X, Y, VARS);
 }
 
-VectorXd Model::FastPredictEx(Ref<const MatrixXd> X,
-                               MatrixXd& Y,
-                               MatrixXd& COV) const {
-  return ((mix*)p)->FastPredictEx(X, Y, COV);
+VectorXd Model::FastPredictEx(Ref<const MatrixXf> X,
+                              MatrixXf& Y,
+                              MatrixXf& VARS) const {
+  return ((mix*)p)->FastPredictEx(X, Y, VARS);
 }
 
 Trainer::Trainer(Model& m) {

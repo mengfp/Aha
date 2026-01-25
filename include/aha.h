@@ -10,12 +10,12 @@
 
 namespace aha {
 
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
-using Eigen::MatrixXf;
-using Eigen::VectorXf;
 using Eigen::Map;
+using Eigen::MatrixXd;
+using Eigen::MatrixXf;
 using Eigen::Ref;
+using Eigen::VectorXd;
+using Eigen::VectorXf;
 
 std::string Version();
 
@@ -34,9 +34,13 @@ class Model {
   VectorXd FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const;
   std::vector<char> Dump() const;
   bool Load(const std::vector<char>& input);
-  double PredictEx(Ref<const VectorXd> x, VectorXd& y, MatrixXd& cov) const;
-  VectorXd BatchPredictEx(Ref<const MatrixXd> X, MatrixXd& Y, MatrixXd& COV) const;
-  VectorXd FastPredictEx(Ref<const MatrixXd> X, MatrixXd& Y, MatrixXd& COV) const;
+  double PredictEx(Ref<const VectorXd> x, VectorXd& y, VectorXd& vars) const;
+  VectorXd BatchPredictEx(Ref<const MatrixXd> X,
+                          MatrixXd& Y,
+                          MatrixXd& VARS) const;
+  VectorXd FastPredictEx(Ref<const MatrixXf> X,
+                         MatrixXf& Y,
+                         MatrixXf& VARS) const;
 
  private:
   void* p;

@@ -194,7 +194,7 @@ bool TestNonLinear() {
   now = steady_clock::now();
   double d = 0.0;
   VectorXd y;
-  for (int i = 0; i < N;  i++) {
+  for (int i = 0; i < N; i++) {
     model.Predict(samples.col(i).head(2), y);
     d += pow(y(0) - samples.col(i)(2), 2);
   }
@@ -821,6 +821,7 @@ int TestPredicts() {
   return 0;
 }
 
+#if 0
 // 测试GMM条件协方差估计
 int TestPredictEx() {
   // 生成训练数据
@@ -977,6 +978,7 @@ int TestBatchPredictEx() {
             << std::endl;
   return 0;
 }
+#endif
 
 int main() {
   // TestGaussian();
