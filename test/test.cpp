@@ -1,4 +1,4 @@
-/*
+ï»¿/*
 ** Copyright 2025 Meng, Fanping. All rights reserved.
 */
 #ifdef _MSC_VER
@@ -136,7 +136,7 @@ bool TestAha() {
   Trainer trainer(model);
 
   for (int k = 0; k < 30; k++) {
-    std::vector<double> sample(3);
+    VectorXd sample(3);
     trainer.Reset();
     for (int i = 0; i < N; i++) {
       gen.gen(sample);
@@ -149,11 +149,11 @@ bool TestAha() {
   // Test predict
   std::cout << "Test prediction ..." << std::endl;
   for (int k = 0; k < 10; k++) {
-    std::vector<double> sample(3);
+    VectorXd sample(3);
     gen.gen(sample);
     std::cout << "sample: " << sample[0] << " " << sample[1] << " " << sample[2]
               << std::endl;
-    std::vector<double> y;
+    VectorXd y;
     sample.resize(2);
     model.Predict(sample, y);
     std::cout << "prediction: " << y[0] << std::endl;
@@ -168,11 +168,10 @@ bool TestNonLinear() {
   int N = 1000000;
   GenNonLinear gen;
 
-  std::vector<std::vector<double>> samples;
-  std::vector<double> sample(3);
+  MatrixXd samples(3, N);
   for (int i = 0; i < N; i++) {
+    Ref<VectorXd> sample = samples.col(i);
     gen.gen(sample);
-    samples.push_back(sample);
   }
 
   // Train
@@ -180,13 +179,13 @@ bool TestNonLinear() {
   Trainer trainer(model);
 
   auto now = steady_clock::now();
-  for (int k = 0; k < 30; k++) {
+  for (int i = 0; i < 30; i++) {
     trainer.Reset();
-    for (auto& s : samples) {
-      trainer.Train(s);
+    for (int j = 0; j < N; j++) {
+      trainer.Train(samples.col(j));
     }
     auto e = trainer.Update();
-    std::cout << k << ": Entropy = " << e << std::endl;
+    std::cout << i << ": Entropy = " << e << std::endl;
   }
   std::cout << "Train time = "
             << duration<double>(steady_clock::now() - now).count() << std::endl;
@@ -194,11 +193,10 @@ bool TestNonLinear() {
   // Predict
   now = steady_clock::now();
   double d = 0.0;
-  for (auto& s : samples) {
-    std::vector<double> x(&s[0], &s[2]);
-    std::vector<double> y;
-    model.Predict(x, y);
-    d += pow(y[0] - s[2], 2);
+  VectorXd y;
+  for (int i = 0; i < N; i++) {
+    model.Predict(samples.col(i).head(2), y);
+    d += pow(y(0) - samples.col(i)(2), 2);
   }
   d /= N;
   std::cout << "MSE = " << d << std::endl;
@@ -417,10 +415,10 @@ bool FVTest() {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].get_u(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].get_l(), generators[i].L)) {
       return false;
     }
   }
@@ -467,10 +465,10 @@ bool FVTest() {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].getu(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].get_u(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].getl(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].get_l(), generators[i].L)) {
       return false;
     }
   }
@@ -532,17 +530,19 @@ bool TestBatchPredict() {
 
   // Fast predict
   VectorXd __r;
-  MatrixXd __Y;
+  MatrixXf __Y;
   Timer t_fast("FastPredict");
   t_fast.start();
-  __r = m.FastPredict(data.topRows(DIM - K), __Y);
+  __r = m.FastPredict(data.topRows(DIM - K).cast<float>(), __Y);
   t_fast.stop();
 
   std::cout << distance(r, _r) << ", " << distance(Y, _Y) << std::endl;
-  std::cout << distance(r, __r) << ", " << distance(Y, __Y) << std::endl;
+  std::cout << distance(r, __r) << ", "
+            << distance(Y, __Y.cast<double>().eval()) << std::endl;
 
   if (distance(r, _r) > 1.0e-6 || distance(Y, _Y) > 1.0e-6 ||
-      distance(r, __r) > 1.0e-3 || distance(Y, __Y) > 1.0e-6)
+      distance(r, __r) > 1.0e-3 ||
+      distance(Y, __Y.cast<double>().eval()) > 1.0e-6)
     return false;
   else
     return true;
@@ -554,10 +554,10 @@ double distance(const Model& m1, const Model& m2) {
   mix* p2 = *(mix**)&m2;
   for (int i = 0; i < m1.Rank(); i++) {
     e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
-    e =
-      std::max(e, distance(p1->GetCores()[i].getu(), p2->GetCores()[i].getu()));
-    e =
-      std::max(e, distance(p1->GetCores()[i].getl(), p2->GetCores()[i].getl()));
+    e = std::max(
+      e, distance(p1->GetCores()[i].get_u(), p2->GetCores()[i].get_u()));
+    e = std::max(
+      e, distance(p1->GetCores()[i].get_l(), p2->GetCores()[i].get_l()));
   }
   return e;
 }
@@ -625,9 +625,9 @@ bool TestBatchTrain() {
   Timer t_fast("FastTrain");
   t_fast.start();
   t3.Reset();
-  // ·Ö¿é¼ÆËã¿ÉÌá¸ß¾«¶È
+  // åˆ†å—è®¡ç®—å¯æé«˜ç²¾åº¦
   for (int i = 0; i < data.cols(); i += 250) {
-    t3.FastTrain(data.middleCols(i, 250));
+    t3.FastTrain(data.middleCols(i, 250).cast<float>());
   }
   t3.Update();
   t_fast.stop();
@@ -681,8 +681,8 @@ void DebugPredict() {
 
   {
     std::cout << "Fast Predict" << std::endl;
-    MatrixXd Y;
-    auto R = m.FastPredict(samples.topRows(2), Y);
+    MatrixXf Y;
+    auto R = m.FastPredict(samples.topRows(2).cast<float>(), Y);
     for (int i = 0; i < 3; i++) {
       std::cout << R[i] << ", " << Y.col(i)[0] << std::endl;
     }
@@ -760,11 +760,11 @@ void DebugTrain() {
     Trainer t(m);
 
     t.Reset();
-    t.FastTrain(samples);
+    t.FastTrain(samples.cast<float>());
     auto e1 = t.Update();
 
     t.Reset();
-    t.FastTrain(samples);
+    t.FastTrain(samples.cast<float>());
     auto e2 = t.Update();
 
     std::cout << e1 << ", " << e2 << std::endl;
@@ -801,7 +801,7 @@ int TestPredicts() {
     }
   }
 
-  aha::MatrixXd out(20, 3);
+  aha::MatrixXd out;
   aha::VectorXd y;
   model.Predict(in.col(0), y);
   out.col(0) = y;
@@ -814,15 +814,17 @@ int TestPredicts() {
   model.BatchPredict(in, out);
   std::cout << out << std::endl << std::endl;
 
-  model.FastPredict(in, out);
+  aha::MatrixXf outf;
+  model.FastPredict(in.cast<float>(), outf);
   std::cout << out << std::endl;
 
   return 0;
 }
 
-// ²âÊÔGMMÌõ¼şĞ­·½²î¹À¼Æ
+#if 0
+// æµ‹è¯•GMMæ¡ä»¶åæ–¹å·®ä¼°è®¡
 int TestPredictEx() {
-  // Éú³ÉÑµÁ·Êı¾İ
+  // ç”Ÿæˆè®­ç»ƒæ•°æ®
   int N = 1000000;
   Random rand((uint32_t)std::time(0));
   MatrixXd data(3, N);
@@ -847,13 +849,13 @@ int TestPredictEx() {
     }
   }
 
-  // ÑµÁ·Ä£ĞÍ
+  // è®­ç»ƒæ¨¡å‹
   Model m(3, 3);
   Trainer t(m);
   for (int k = 0; k < 30; k++) {
     t.Reset();
     for (int i = 0; i < N; i += 250) {
-      t.FastTrain(data.middleCols(i, 250));
+      t.FastTrain(data.middleCols(i, 250).cast<float>());
     }
     double e = t.Update();
     std::cout << e << std::endl;
@@ -861,7 +863,7 @@ int TestPredictEx() {
   m.Sort();
   std::cout << m.Export() << std::endl;
 
-  // ¼ÆËãÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // è®¡ç®—æ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   VectorXd x(1);
   x(0) = -1.0;
   VectorXd y(2);
@@ -870,7 +872,7 @@ int TestPredictEx() {
   std::cout << "\nCalulate:\n" << y << std::endl;
   std::cout << "\n" << cov << std::endl;
 
-  // ¼ìÑéÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // æ£€éªŒæ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   VectorXd mean = VectorXd::Zero(2);
   MatrixXd covar = MatrixXd::Zero(2, 2);
   for (int i = 0; i < N; i++) {
@@ -903,9 +905,9 @@ int TestPredictEx() {
   return 0;
 }
 
-// ²âÊÔGMMÌõ¼şĞ­·½²îÅúÁ¿¹À¼Æ
+// æµ‹è¯•GMMæ¡ä»¶åæ–¹å·®æ‰¹é‡ä¼°è®¡
 int TestBatchPredictEx() {
-  // Éú³ÉÑµÁ·Êı¾İ
+  // ç”Ÿæˆè®­ç»ƒæ•°æ®
   int N = 1000000;
   Random rand((uint32_t)std::time(0));
   MatrixXd data(3, N);
@@ -930,13 +932,13 @@ int TestBatchPredictEx() {
     }
   }
 
-  // ÑµÁ·Ä£ĞÍ
+  // è®­ç»ƒæ¨¡å‹
   Model m(3, 3);
   Trainer t(m);
   for (int k = 0; k < 30; k++) {
     t.Reset();
     for (int i = 0; i < N; i += 250) {
-      t.FastTrain(data.middleCols(i, 250));
+      t.FastTrain(data.middleCols(i, 250).cast<float>());
     }
     double e = t.Update();
     std::cout << e << std::endl;
@@ -944,7 +946,7 @@ int TestBatchPredictEx() {
   m.Sort();
   std::cout << m.Export() << std::endl;
 
-  // µ¥²½¼ÆËãÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // å•æ­¥è®¡ç®—æ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   int M = 10000;
   MatrixXd Y(2, M);
   MatrixXd C(2, 2 * M);
@@ -959,7 +961,7 @@ int TestBatchPredictEx() {
   }
   t_single.stop();
 
-  // ÅúÁ¿¼ÆËãÌõ¼ş¾ùÖµºÍÌõ¼ş·½²î
+  // æ‰¹é‡è®¡ç®—æ¡ä»¶å‡å€¼å’Œæ¡ä»¶æ–¹å·®
   MatrixXd _Y(2, 250);
   MatrixXd _C(2, 2 * 250);
   Timer t_batch("Batch");
@@ -976,6 +978,7 @@ int TestBatchPredictEx() {
             << std::endl;
   return 0;
 }
+#endif
 
 int main() {
   // TestGaussian();

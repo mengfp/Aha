@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+
+# Build directories
+build/
+bin/
+
+# Python metadata
+*.egg-info/

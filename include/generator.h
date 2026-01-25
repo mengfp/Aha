@@ -12,11 +12,11 @@
 
 namespace aha {
 
-using Eigen::VectorXd;
-using Eigen::MatrixXd;
+using Eigen::Infinity;
 using Eigen::LLT;
 using Eigen::Lower;
-using Eigen::Infinity;
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 inline uint64_t nano() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -116,7 +116,8 @@ class Gen2 {
     rand.seed(seed);
   }
 
-  void gen(std::vector<double>& sample) {
+  template <typename T>
+  void gen(T& sample) {
     auto x = rand.randNorm(0.0, 1.0);
     auto y = rand.randNorm(0.0, 1.0);
     auto z = rand.randNorm(0.0, 1.0);
@@ -146,7 +147,8 @@ class GenNonLinear {
     rand.seed(seed);
   }
 
-  void gen(std::vector<double>& sample) {
+  template <typename T>
+  void gen(T& sample) {
     auto a = rand.randNorm(0.0, 1.0);
     auto b = rand.randNorm(0.0, 1.0);
     auto c = rand.randNorm(0.0, 1.0);

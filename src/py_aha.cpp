@@ -16,6 +16,7 @@ namespace py = pybind11;
 using namespace aha;
 using namespace Eigen;
 using RowMatrixXdRef = Ref<const Matrix<double, -1, -1, RowMajor>>;
+using RowMatrixXfRef = Ref<const Matrix<float, -1, -1, RowMajor>>;
 
 PYBIND11_MODULE(aha, m) {
   m.attr("__version__") = VERSION;
@@ -31,55 +32,59 @@ PYBIND11_MODULE(aha, m) {
     .def("Dim", &Model::Dim)
     .def(
       "Predict",
-      [](const Model& self, const std::vector<double>& x) {
-        std::vector<double> y;
+      [](const Model& self, Ref<const VectorXd> x) {
+        VectorXd y;
         auto r = self.Predict(x, y);
         return py::make_tuple(r, y);
       },
       py::arg("x"))
     .def(
       "PredictEx",
-      [](const Model& self, const VectorXd& x) {
+      [](const Model& self, Ref<const VectorXd> x) {
         VectorXd y;
-        MatrixXd cov;
-        auto r = self.PredictEx(x, y, cov);
-        return py::make_tuple(r, y, cov.transpose());
+        VectorXd vars;
+        auto r = self.PredictEx(x, y, vars);
+        return py::make_tuple(r, y, vars);
       },
       py::arg("x"))
     .def(
       "BatchPredict",
-      [](const Model& self, const MatrixXd& x) {
+      [](const Model& self, RowMatrixXdRef x) {
+        Map<const MatrixXd> x_view(x.data(), x.cols(), x.rows());
         MatrixXd y;
-        auto r = self.BatchPredict(x.transpose(), y);
+        auto r = self.BatchPredict(x, y);
         return py::make_tuple(r, y.transpose());
       },
-      py::arg("x"))
+      py::arg("x").noconvert())
     .def(
       "BatchPredictEx",
-      [](const Model& self, const MatrixXd& x) {
+      [](const Model& self, RowMatrixXdRef x) {
+        Map<const MatrixXd> x_view(x.data(), x.cols(), x.rows());
         MatrixXd y;
-        MatrixXd cov;
-        auto r = self.BatchPredictEx(x.transpose(), y, cov);
-        return py::make_tuple(r, y.transpose(), cov.transpose());
+        MatrixXd vars;
+        auto r = self.BatchPredictEx(x_view, y, vars);
+        return py::make_tuple(r, y.transpose(), vars.transpose());
       },
-      py::arg("x"))
+      py::arg("x").noconvert())
     .def(
       "FastPredict",
-      [](const Model& self, const MatrixXd& x) {
-        MatrixXd y;
-        auto r = self.FastPredict(x.transpose(), y);
+      [](const Model& self, RowMatrixXfRef x) {
+        Map<const MatrixXf> x_view(x.data(), x.cols(), x.rows());
+        MatrixXf y;
+        auto r = self.FastPredict(x_view, y);
         return py::make_tuple(r, y.transpose());
       },
-      py::arg("x"))
+      py::arg("x").noconvert())
     .def(
       "FastPredictEx",
-      [](const Model& self, const MatrixXd& x) {
-        MatrixXd y;
-        MatrixXd cov;
-        auto r = self.FastPredictEx(x.transpose(), y, cov);
-        return py::make_tuple(r, y.transpose(), cov.transpose());
+      [](const Model& self, RowMatrixXfRef x) {
+        Map<const MatrixXf> x_view(x.data(), x.cols(), x.rows());
+        MatrixXf y;
+        MatrixXf vars;
+        auto r = self.FastPredictEx(x_view, y, vars);
+        return py::make_tuple(r, y.transpose(), vars.transpose());
       },
-      py::arg("x"))
+      py::arg("x").noconvert())
     .def("Sort", &Model::Sort)
     .def("Export", &Model::Export)
     .def("Import", &Model::Import, py::arg("model"))
@@ -104,26 +109,26 @@ PYBIND11_MODULE(aha, m) {
     .def("Dim", &Trainer::Dim)
     .def(
       "Train",
-      [](Trainer& self, const std::vector<double>& sample) {
+      [](Trainer& self, Ref<const VectorXd> sample) {
         return self.Train(sample);
       },
       py::arg("sample"))
     .def(
       "BatchTrain",
-      [](Trainer& self, const RowMatrixXdRef& samples) {
+      [](Trainer& self, RowMatrixXdRef samples) {
         Map<const MatrixXd> samples_view(
           samples.data(), samples.cols(), samples.rows());
         self.BatchTrain(samples_view);
       },
-      py::arg("samples"))
+      py::arg("samples").noconvert())
     .def(
       "FastTrain",
-      [](Trainer& self, const RowMatrixXdRef& samples) {
-        Map<const MatrixXd> samples_view(
+      [](Trainer& self, RowMatrixXfRef samples) {
+        Map<const MatrixXf> samples_view(
           samples.data(), samples.cols(), samples.rows());
         self.FastTrain(samples_view);
       },
-      py::arg("samples"))
+      py::arg("samples").noconvert())
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)

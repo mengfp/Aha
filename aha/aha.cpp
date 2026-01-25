@@ -35,17 +35,8 @@ int Model::Dim() const {
   return ((mix*)p)->Dim();
 }
 
-double Model::Predict(const VectorXdRef& x, VectorXd& y) const {
+double Model::Predict(Ref<const VectorXd> x, VectorXd& y) const {
   return ((mix*)p)->Predict(x, y);
-}
-
-double Model::Predict(const std::vector<double>& x,
-                      std::vector<double>& y) const {
-  Map<const VectorXd> _x(x.data(), x.size());
-  VectorXd _y;
-  auto r = ((mix*)p)->Predict(_x, _y);
-  y.assign(_y.begin(), _y.end());
-  return r;
 }
 
 void Model::Sort() {
@@ -60,11 +51,11 @@ bool Model::Import(const std::string& model) {
   return ((mix*)p)->Import(model);
 }
 
-VectorXd Model::BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
+VectorXd Model::BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
   return ((mix*)p)->BatchPredict(X, Y);
 }
 
-VectorXd Model::FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
+VectorXd Model::FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const {
   return ((mix*)p)->FastPredict(X, Y);
 }
 
@@ -76,20 +67,22 @@ bool Model::Load(const std::vector<char>& input) {
   return ((mix*)p)->Load(input);
 }
 
-double Model::PredictEx(const VectorXdRef& x, VectorXd& y, MatrixXd& cov) const {
-  return ((mix*)p)->PredictEx(x, y, cov);
+double Model::PredictEx(Ref<const VectorXd> x,
+                        VectorXd& y,
+                        VectorXd& vars) const {
+  return ((mix*)p)->PredictEx(x, y, vars);
 }
 
-VectorXd Model::BatchPredictEx(const MatrixXdRef& X,
-                             MatrixXd& Y,
-                             MatrixXd& COV) const {
-  return ((mix*)p)->BatchPredictEx(X, Y, COV);
-}
-
-VectorXd Model::FastPredictEx(const MatrixXdRef& X,
+VectorXd Model::BatchPredictEx(Ref<const MatrixXd> X,
                                MatrixXd& Y,
-                               MatrixXd& COV) const {
-  return ((mix*)p)->FastPredictEx(X, Y, COV);
+                               MatrixXd& VARS) const {
+  return ((mix*)p)->BatchPredictEx(X, Y, VARS);
+}
+
+VectorXd Model::FastPredictEx(Ref<const MatrixXf> X,
+                              MatrixXf& Y,
+                              MatrixXf& VARS) const {
+  return ((mix*)p)->FastPredictEx(X, Y, VARS);
 }
 
 Trainer::Trainer(Model& m) {
@@ -108,13 +101,8 @@ int Trainer::Dim() const {
   return ((trainer*)p)->Dim();
 }
 
-void Trainer::Train(const VectorXdRef& sample) {
+void Trainer::Train(Ref<const VectorXd> sample) {
   ((trainer*)p)->Train(sample);
-}
-
-void Trainer::Train(const std::vector<double>& sample) {
-  Map<const VectorXd> s(sample.data(), sample.size());
-  ((trainer*)p)->Train(s);
 }
 
 bool Trainer::Merge(const Trainer& t, double w) {
@@ -137,11 +125,11 @@ void Trainer::Reset() {
   return ((trainer*)p)->Reset();
 }
 
-void Trainer::BatchTrain(const MatrixXdRef& samples) {
+void Trainer::BatchTrain(Ref<const MatrixXd> samples) {
   ((trainer*)p)->BatchTrain(samples);
 }
 
-void Trainer::FastTrain(const MatrixXdRef& samples) {
+void Trainer::FastTrain(Ref<const MatrixXf> samples) {
   ((trainer*)p)->FastTrain(samples);
 }
 

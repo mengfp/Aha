@@ -12,6 +12,8 @@
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
+#include <xmmintrin.h>
+#include <pmmintrin.h>
 
 #include "version.h"
 #include "generator.h"
@@ -35,9 +37,6 @@ using Eigen::Success;
 using Eigen::VectorXd;
 using Eigen::VectorXf;
 
-using MatrixXdRef = Eigen::Ref<const Eigen::MatrixXd>;
-using VectorXdRef = Eigen::Ref<const Eigen::VectorXd>;
-
 using json = nlohmann::ordered_json;
 
 /*
@@ -50,7 +49,7 @@ class mvn {
   }
 
   // 构造函数
-  mvn(const VectorXdRef& mu, const MatrixXdRef& sigma) {
+  mvn(Ref<const VectorXd> mu, Ref<const MatrixXd> sigma) {
     Initialize(mu, sigma);
   }
 
@@ -60,47 +59,53 @@ class mvn {
   }
 
   // 初始化，Cholesky分解
-  void Initialize(const VectorXdRef& mu, const MatrixXdRef& sigma) {
+  bool Initialize(Ref<const VectorXd> mu, Ref<const MatrixXd> sigma) {
+    assert(mu.size() > 0);
     assert(mu.size() == sigma.rows());
     assert(sigma.rows() == sigma.cols());
-    int n = (int)mu.size();
     auto llt = LLT<MatrixXd>(sigma.selfadjointView<Lower>());
-    assert(llt.info() == Success);
-    u = mu;
-    l = llt.matrixL();
-    l_inverse = l.triangularView<Lower>().solve(MatrixXd::Identity(n, n));
-    c.resize(n);
-    double d = 0.0;
-    for (int i = 0; i < n; i++) {
-      d += 2 * std::log(l(i, i));
-      c(i) = -0.5 * ((i + 1) * std::log(2 * M_PI) + d);
+    if (llt.info() == Success) {
+      ill = false;
+      u = mu;
+      l = llt.matrixL();
+      int dim = (int)mu.size();
+      c.resize(dim);
+      double d = 0.0;
+      for (int i = 0; i < dim; i++) {
+        d += 2 * std::log(l(i, i));
+        c(i) = -0.5 * ((i + 1) * std::log(2 * M_PI) + d);
+      }
+      return true;
+    } else {
+      ill = true;
+      return false;
     }
   }
 
   // 计算对数概率密度
-  double Evaluate(const VectorXdRef& x) const {
+  double Evaluate(Ref<const VectorXd> x) const {
     assert(x.size() == u.size());
-    return -0.5 * (l_inverse.triangularView<Lower>() * (x - u)).squaredNorm() +
+    return -0.5 * l.triangularView<Lower>().solve(x - u).squaredNorm() +
            c(c.size() - 1);
   }
 
   // 批量计算对数概率密度
-  VectorXd BatchEvaluate(const MatrixXdRef& X) const {
+  VectorXd BatchEvaluate(Ref<const MatrixXd> X) const {
     assert(X.rows() == u.size());
-    return -0.5 * (l_inverse.triangularView<Lower>() * (X.colwise() - u))
+    return -0.5 * l.triangularView<Lower>()
+                    .solve(X.colwise() - u)
                     .colwise()
                     .squaredNorm()
                     .array() +
            c(c.size() - 1);
   }
 
-  // 快速批量计算对数概率密度
-  VectorXd FastEvaluate(const MatrixXdRef& X) const {
+  // 批量计算对数概率密度（单精度）
+  VectorXd FastEvaluate(Ref<const MatrixXf> X) const {
     assert(X.rows() == u.size());
-    auto _u = u.cast<float>();
-    auto _l = l.cast<float>();
-    return -0.5 * _l.triangularView<Lower>()
-                    .solve(X.cast<float>().colwise() - _u)
+    return -0.5 * l.cast<float>()
+                    .triangularView<Lower>()
+                    .solve(X.colwise() - u.cast<float>())
                     .colwise()
                     .squaredNorm()
                     .array()
@@ -109,7 +114,7 @@ class mvn {
   }
 
   // 计算对数边缘概率密度
-  double PartialEvaluate(const VectorXdRef& x) const {
+  double PartialEvaluate(Ref<const VectorXd> x) const {
     assert(x.size() <= u.size());
     auto k = x.size();
     return -0.5 * l.topLeftCorner(k, k)
@@ -120,59 +125,63 @@ class mvn {
   }
 
   // 计算对数边缘概率密度和条件期望
-  double Predict(const VectorXdRef& x, VectorXd& y) const {
-    assert(x.size() <= u.size());
+  double Predict(Ref<const VectorXd> x, Ref<VectorXd> y) const {
+    assert(x.size() + y.size() == u.size());
     auto n = u.size();
     auto k = x.size();
-    y.resize(n - k);
     VectorXd temp =
       l.topLeftCorner(k, k).triangularView<Lower>().solve(x - u.head(k));
-    y = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
+    y.noalias() = l.bottomLeftCorner(n - k, k) * temp + u.tail(n - k);
     return -0.5 * temp.squaredNorm() + c(k - 1);
   }
 
   // 批量计算对数边缘概率密度和条件期望
-  VectorXd BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
-    assert(X.rows() <= u.size());
+  VectorXd BatchPredict(Ref<const MatrixXd> X, Ref<MatrixXd> Y) const {
+    assert(X.cols() == Y.cols());
+    assert(X.rows() + Y.rows() == u.size());
     auto n = u.size();
     auto k = X.rows();
-    Y.resize(n - k, X.cols());
     MatrixXd temp = l.topLeftCorner(k, k).triangularView<Lower>().solve(
       X.colwise() - u.head(k));
-    Y = (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
+    Y.noalias() =
+      (l.bottomLeftCorner(n - k, k) * temp).colwise() + u.tail(n - k);
     return -0.5 * temp.colwise().squaredNorm().array() + c(k - 1);
   }
 
-  // 快速计算对数边缘概率密度和条件期望
-  VectorXd FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
-    assert(X.rows() <= u.size());
+  // 批量计算对数边缘概率密度和条件期望（单精度）
+  VectorXd FastPredict(Ref<const MatrixXf> X, Ref<MatrixXf> Y) const {
+    assert(X.cols() == Y.cols());
+    assert(X.rows() + Y.rows() == u.size());
     auto n = u.size();
     auto k = X.rows();
-    Y.resize(n - k, X.cols());
-    auto _u = u.cast<float>();
-    auto _l = l.cast<float>();
-    MatrixXf temp = _l.topLeftCorner(k, k).triangularView<Lower>().solve(
-      X.cast<float>().colwise() - _u.head(k));
-    Y = ((_l.bottomLeftCorner(n - k, k) * temp).colwise() + _u.tail(n - k))
-          .cast<double>();
+    MatrixXf temp =
+      l.topLeftCorner(k, k).cast<float>().triangularView<Lower>().solve(
+        X.colwise() - u.head(k).cast<float>());
+    Y.noalias() =
+      (l.bottomLeftCorner(n - k, k).cast<float>() * temp).colwise() +
+      u.tail(n - k).cast<float>();
     return -0.5 * temp.cast<double>().colwise().squaredNorm().array() +
            c(k - 1);
   }
 
  public:
-  const VectorXd& getu() const {
+  const VectorXd& get_u() const {
     return u;
   }
 
-  const MatrixXd& getl() const {
+  const MatrixXd& get_l() const {
     return l;
+  }
+
+  bool is_ill() const {
+    return ill;
   }
 
  protected:
   VectorXd u;
   MatrixXd l;
-  MatrixXd l_inverse;
   VectorXd c;
+  bool ill;
 };
 
 /*
@@ -210,9 +219,9 @@ class mix {
   }
 
   // 初始化
-  void Initialize(const VectorXdRef& weights,
-                  const MatrixXdRef& means,
-                  const MatrixXdRef& covs) {
+  void Initialize(Ref<const VectorXd> weights,
+                  Ref<const MatrixXd> means,
+                  Ref<const MatrixXd> covs) {
     rank = (int)weights.size();
     dim = (int)means.rows();
     assert(rank > 0 && dim > 0);
@@ -227,7 +236,7 @@ class mix {
   }
 
   // 计算对数概率密度和分类权重
-  double Evaluate(const VectorXdRef& x, VectorXd& w) const {
+  double Evaluate(Ref<const VectorXd> x, VectorXd& w) const {
     assert((int)x.size() == dim);
     assert((int)w.size() == rank);
     for (int i = 0; i < rank; i++) {
@@ -242,10 +251,9 @@ class mix {
   }
 
   // 批量计算对数概率密度和分类权重
-  VectorXd BatchEvaluate(const MatrixXdRef& X, Ref<MatrixXd> W) const {
+  VectorXd BatchEvaluate(Ref<const MatrixXd> X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
-    assert(W.rows() == X.cols());
-    assert((int)W.cols() == rank);
+    W.resize(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
       W.col(i) = cores[i].BatchEvaluate(X);
     }
@@ -257,184 +265,171 @@ class mix {
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 快速批量计算对数概率密度和分类权重
-  VectorXd FastEvaluate(const MatrixXdRef& X, MatrixXd& W) const {
+  // 批量计算对数概率密度和分类权重（单精度）
+  VectorXd FastEvaluate(Ref<const MatrixXf> X, MatrixXd& W) const {
     assert((int)X.rows() == dim);
-    assert(W.rows() == X.cols());
-    assert((int)W.cols() == rank);
+    W.resize(X.cols(), rank);
     for (int i = 0; i < rank; i++) {
       W.col(i) = cores[i].FastEvaluate(X);
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i).array() - wmax.array()).exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
     W.array().colwise() /= sum.array();
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 计算对数边缘概率密度和条件期望
-  double Predict(const VectorXdRef& x, VectorXd& y) const {
-    assert((int)x.size() <= dim);
-    std::vector<VectorXd> v(rank);
-    VectorXd w(rank);
+  // 计算对数边缘概率密度和条件期望
+  double Predict(Ref<const VectorXd> x, VectorXd& y) const {
+    assert((int)x.size() < dim);
+    const int k = (int)x.size();
+    VectorXd w = VectorXd::Zero(rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, rank);
     for (int i = 0; i < rank; i++) {
-      w[i] = cores[i].Predict(x, v[i]);
+      w(i) = cores[i].Predict(x, V.col(i));
     }
+    w.array() += weights.array().log();
     double wmax = w.maxCoeff();
-    w = weights.array() * (w.array() - wmax).exp();
+    w = (w.array() - wmax).exp();
     double sum = w.sum();
-    y.resize(dim - x.size());
-    y.setZero();
-    for (int i = 0; i < rank; i++) {
-      y += (w[i] / sum) * v[i];
-    }
+    w /= sum;
+    y = V * w;
     return std::log(sum) + wmax;
   }
 
-  // TODO: 批量计算对数边缘概率密度和条件期望
-  VectorXd BatchPredict(const MatrixXdRef& X, MatrixXd& Y) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+  // 批量计算对数边缘概率密度和条件期望
+  VectorXd BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
+    assert((int)X.rows() < dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchPredict(X, V[i]);
+      W.col(i) = cores[i].BatchPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).asDiagonal();
     }
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 快速计算对数边缘概率密度和条件期望
-  VectorXd FastPredict(const MatrixXdRef& X, MatrixXd& Y) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+  // 计算对数边缘概率密度和条件期望（单精度）
+  VectorXd FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const {
+    assert((int)X.rows() < dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXf V = MatrixXf::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].FastPredict(X, V[i]);
+      W.col(i) = cores[i].FastPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).cast<float>().asDiagonal();
     }
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 计算条件期望和条件协方差
-  double PredictEx(const VectorXdRef& x, VectorXd& y, MatrixXd& cov) const {
-    assert((int)x.size() <= dim);
-    std::vector<VectorXd> v(rank);
-    VectorXd w(rank);
+  // 计算条件期望和条件方差（协方差矩阵的主对角线）
+  double PredictEx(Ref<const VectorXd> x, VectorXd& y, VectorXd& vars) const {
+    assert((int)x.size() < dim);
+    const int k = (int)x.size();
+    VectorXd w = VectorXd::Zero(rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, rank);
     for (int i = 0; i < rank; i++) {
-      w[i] = cores[i].Predict(x, v[i]);
+      w(i) = cores[i].Predict(x, V.col(i));
     }
+    w.array() += weights.array().log();
     double wmax = w.maxCoeff();
-    w = weights.array() * (w.array() - wmax).exp();
+    w = (w.array() - wmax).exp();
     double sum = w.sum();
-    y.resize(dim - x.size());
-    y.setZero();
+    w /= sum;
+    y = V * w;
+    // 计算条件方差
+    vars.setZero(dim - k);
     for (int i = 0; i < rank; i++) {
-      y += (w[i] / sum) * v[i];
-    }
-    // 计算条件协方差
-    cov.resize(y.size(), y.size());
-    cov.setZero();
-    for (int i = 0; i < rank; i++) {
-      auto L = cores[i].getl().bottomRightCorner(y.size(), y.size());
-      auto _v = v[i] - y;
-      cov += (w[i] / sum) * (L * L.transpose());
-      cov += (w[i] / sum) * (_v * _v.transpose());
+      auto Li = cores[i].get_l().bottomRightCorner(dim - k, dim - k);
+      auto Vi = V.col(i) - y;
+      vars += (Li.rowwise().squaredNorm() + Vi.cwiseAbs2()) * w(i);
     }
     return std::log(sum) + wmax;
   }
 
-  // TODO: 批量计算条件期望和条件协方差
-  VectorXd BatchPredictEx(const MatrixXdRef& X,
+  // 批量计算条件期望和条件方差（协方差矩阵的主对角线）
+  VectorXd BatchPredictEx(Ref<const MatrixXd> X,
                           MatrixXd& Y,
-                          MatrixXd& COV) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+                          MatrixXd& VARS) const {
+    assert((int)X.rows() < dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXd V = MatrixXd::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].BatchPredict(X, V[i]);
+      W.col(i) = cores[i].BatchPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).asDiagonal();
     }
-    // 计算条件协方差
-    COV.resize(Y.rows(), Y.rows() * Y.cols());
-    COV.setZero();
+    // 计算条件方差
+    VARS.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      auto L = cores[i].getl().bottomRightCorner(Y.rows(), Y.rows());
-      auto C = L * L.transpose();
-      for (int j = 0; j < Y.cols(); j++) {
-        auto _COV = COV.middleCols(COV.rows() * j, COV.rows());
-        auto _V = V[i].col(j) - Y.col(j);
-        _COV += W(j, i) * C;
-        _COV += W(j, i) * (_V * _V.transpose());
-      }
+      auto Li = cores[i].get_l().bottomRightCorner(dim - k, dim - k);
+      auto Vi = V.middleCols(N * i, N) - Y;
+      auto Wi = W.col(i).transpose();
+      VARS += Li.rowwise().squaredNorm() * Wi;
+      VARS.array() += Vi.array().square().rowwise() * Wi.array();
     }
     return sum.array().log() + wmax.array();
   }
 
-  // TODO: 批量快速计算条件期望和条件协方差
-  VectorXd FastPredictEx(const MatrixXdRef& X,
-                         MatrixXd& Y,
-                         MatrixXd& COV) const {
-    assert((int)X.rows() <= dim);
-    std::vector<MatrixXd> V(rank);
-    MatrixXd W(X.cols(), rank);
+  // 批量计算条件期望和条件方差（单精度）
+  VectorXd FastPredictEx(Ref<const MatrixXf> X,
+                         MatrixXf& Y,
+                         MatrixXf& VARS) const {
+    assert((int)X.rows() < dim);
+    const int k = (int)X.rows();
+    const int N = (int)X.cols();
+    MatrixXd W = MatrixXd::Zero(N, rank);
+    MatrixXf V = MatrixXf::Zero(dim - k, N * rank);
     for (int i = 0; i < rank; i++) {
-      W.col(i) = cores[i].FastPredict(X, V[i]);
+      W.col(i) = cores[i].FastPredict(X, V.middleCols(N * i, N));
     }
+    W.array().rowwise() += weights.transpose().array().log();
     VectorXd wmax = W.rowwise().maxCoeff();
-    for (int i = 0; i < rank; i++) {
-      W.col(i) = weights[i] * (W.col(i) - wmax).array().exp();
-    }
+    W = (W.colwise() - wmax).array().exp();
     VectorXd sum = W.rowwise().sum();
-    W = W.array().colwise() / sum.array();
-    Y.resize(dim - X.rows(), X.cols());
-    Y.setZero();
+    W.array().colwise() /= sum.array();
+    Y.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      Y += V[i] * DiagonalMatrix<double, Dynamic>(W.col(i));
+      Y += V.middleCols(N * i, N) * W.col(i).cast<float>().asDiagonal();
     }
-    // 计算条件协方差
-    COV.resize(Y.rows(), Y.rows() * Y.cols());
-    COV.setZero();
+    // 计算条件方差
+    VARS.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      auto L = cores[i].getl().bottomRightCorner(Y.rows(), Y.rows());
-      auto C = L * L.transpose();
-      for (int j = 0; j < Y.cols(); j++) {
-        auto _COV = COV.middleCols(COV.rows() * j, COV.rows());
-        auto _V = V[i].col(j) - Y.col(j);
-        _COV += W(j, i) * C;
-        _COV += W(j, i) * (_V * _V.transpose());
-      }
+      auto Li =
+        cores[i].get_l().bottomRightCorner(dim - k, dim - k).cast<float>();
+      auto Vi = V.middleCols(N * i, N) - Y;
+      auto Wi = W.col(i).transpose().cast<float>();
+      VARS += Li.rowwise().squaredNorm() * Wi;
+      VARS.array() += Vi.array().square().rowwise() * Wi.array();
     }
     return sum.array().log() + wmax.array();
   }
@@ -450,8 +445,8 @@ class mix {
     j["w"] = std::vector<double>(weights.begin(), weights.end());
     j["c"] = {};
     for (int i = 0; i < rank; i++) {
-      auto& u = cores[i].getu();
-      auto& l = cores[i].getl();
+      auto& u = cores[i].get_u();
+      auto& l = cores[i].get_l();
       std::vector<double> mu(u.begin(), u.end());
       std::vector<double> sigma(dim * dim);
       Map<MatrixXd>(sigma.data(), dim, dim) = l * l.transpose();
@@ -510,9 +505,9 @@ class mix {
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "u:\n" << cores[i].getu() << "\n";
+      std::cout << "u:\n" << cores[i].get_u() << "\n";
       std::cout << "s:\n"
-                << cores[i].getl() * cores[i].getl().transpose() << "\n\n";
+                << cores[i].get_l() * cores[i].get_l().transpose() << "\n\n";
     }
   }
 
@@ -537,10 +532,10 @@ class mix {
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      memcpy(p, cores[i].getu().data(), sizeof(double) * dim);
+      memcpy(p, cores[i].get_u().data(), sizeof(double) * dim);
       p += sizeof(double) * dim;
       Map<MatrixXd>((double*)p, dim, dim) =
-        cores[i].getl() * cores[i].getl().transpose();
+        cores[i].get_l() * cores[i].get_l().transpose();
       p += sizeof(double) * dim * dim;
     }
     return output;
@@ -602,7 +597,10 @@ class trainer {
   }
 
   // 添加一个样本
-  void Train(const VectorXdRef& sample) {
+  void Train(Ref<const VectorXd> sample) {
+    assert(sample.size() == dim);
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       VectorXd temp = VectorXd::Zero(rank);
       entropy -= m.Evaluate(sample, temp);
@@ -621,7 +619,8 @@ class trainer {
   }
 
   // 批量添加样本
-  void BatchTrain(const MatrixXdRef& samples) {
+  void BatchTrain(Ref<const MatrixXd> samples) {
+    assert(samples.rows() == dim);
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
@@ -641,23 +640,28 @@ class trainer {
     }
   }
 
-  // TODO: 快速批量添加样本
-  void FastTrain(const MatrixXdRef& samples) {
+  // 批量添加样本（单精度）
+  void FastTrain(Ref<const MatrixXf> samples) {
+    assert(samples.rows() == dim);
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
       weights += W.colwise().sum();
-      means += samples * W;
+      means += (samples * W.cast<float>()).cast<double>();
+      MatrixXf temp = MatrixXf::Zero(samples.rows(), samples.cols());
       for (int i = 0; i < rank; i++) {
-        auto temp = samples.array().rowwise() * W.col(i).transpose().array().sqrt();
-        covs.middleCols(dim * i, dim)
-            .selfadjointView<Lower>()
-            .rankUpdate(temp.matrix());
+        temp = samples.array().rowwise() *
+               W.col(i).transpose().array().sqrt().cast<float>();
+        covs.middleCols(dim * i, dim).triangularView<Lower>() +=
+          (temp * temp.transpose()).cast<double>();
       }
     } else {
       weights(0) += samples.cols();
-      means.col(0) += samples.rowwise().sum();
-      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(samples);
+      means.col(0) += samples.cast<double>().rowwise().sum();
+      covs.leftCols(dim).selfadjointView<Lower>().rankUpdate(
+        samples.cast<double>());
     }
   }
 
