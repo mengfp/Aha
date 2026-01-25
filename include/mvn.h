@@ -12,6 +12,8 @@
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
+#include <xmmintrin.h>
+#include <pmmintrin.h>
 
 #include "version.h"
 #include "generator.h"
@@ -124,7 +126,7 @@ class mvn {
 
   // 计算对数边缘概率密度和条件期望
   double Predict(Ref<const VectorXd> x, Ref<VectorXd> y) const {
-    assert(x.size + y.size() == u.size());
+    assert(x.size() + y.size() == u.size());
     auto n = u.size();
     auto k = x.size();
     VectorXd temp =
