@@ -15,6 +15,7 @@ from aha import Model, Trainer
 def generate_data(size = 1000000):
     df = pd.DataFrame(np.random.normal(size=(size, 3)), columns=list('xyz'))
     df['z'] += df['x'] * df['y']
+    df = pd.DataFrame(np.ascontiguousarray(df), columns=df.columns)
     return df
 
 
@@ -65,7 +66,7 @@ def test(model, df):
 @Timer()
 def batch_test(model, df):
     d = 0.0
-    r, z = model.BatchPredict(df[['x', 'y']])
+    r, z = model.BatchPredict(np.ascontiguousarray(df[['x', 'y']]))
     d = mean_squared_error(df['z'], z)
     print('MSE =', d)
     return d

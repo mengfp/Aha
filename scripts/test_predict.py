@@ -17,6 +17,7 @@ def generate_data(size = 1000000):
     df = pd.DataFrame(np.random.normal(size=(size, 4)), columns=list('xyzw'))
     df['z'] += df['x'] * df['y']
     df['w'] += df['x'] + df['y']
+    df = pd.DataFrame(np.ascontiguousarray(df), columns=df.columns)
     return df
 
 
@@ -51,20 +52,20 @@ def test(model, df):
 def test_ex(model, df):
     d = 0.0
     for row in df.to_numpy():
-        r, z, cov = model.PredictEx(row[:2])
+        r, z, var = model.PredictEx(row[:2])
         e1 = z[0] - row[2]
         e2 = z[1] - row[3]
         d += (e1 * e1 + e2 * e2) / 2
     d /= len(df)
     print('MSE =', d)
-    print('COV =', cov)
+    print('var =', var)
     return d
 
 # 测试模型性能，计算均方误差
 @Timer()
 def batch_test(model, df):
     d = 0.0
-    r, z = model.BatchPredict(df[['x', 'y']])
+    r, z = model.BatchPredict(np.ascontiguousarray(df[['x', 'y']]))
     d = mean_squared_error(df[['z', 'w']], z)
     print('MSE =', d)
     print('z[0].shape = ', z[0].shape)
@@ -74,17 +75,17 @@ def batch_test(model, df):
 @Timer()
 def batch_test_ex(model, df):
     d = 0.0
-    r, z, cov = model.BatchPredictEx(df[['x', 'y']])
+    r, z, var = model.BatchPredictEx(np.ascontiguousarray(df[['x', 'y']]))
     d = mean_squared_error(df[['z', 'w']], z)
     print('MSE =', d)
     print('z.shape = ', z.shape)
-    print('cov.shape = ', cov.shape)
-    print('cov =', cov)
+    print('var.shape = ', var.shape)
+    print('var =', var)
     return d
 
-# test = batch_test
+test = batch_test
 # test = test_ex
-test = batch_test_ex
+# test = batch_test_ex
 
 # 主程序
 if __name__ == "__main__":

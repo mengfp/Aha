@@ -66,8 +66,6 @@ def industrial_stable_validation():
 
     print("\n[验收通过] 权重分布自然，三路接口逻辑一致。")
 
-    return p1, mu1_out, v1
-
 
 def independent_audit():
     # --- 1. 定义与 C++ 完全一致的模型参数 ---
@@ -117,7 +115,7 @@ def independent_audit():
         cond_covs.append(s_cond)
 
     # --- 3. 混合逻辑 (Mixing Logic) ---
-    # 计算后验权重 w'
+    # 计算后验权重 w
     w_post = (w * likelihoods) / np.sum(w * likelihoods)
     
     # 计算最终混合均值
@@ -128,7 +126,7 @@ def independent_audit():
     # 计算最终混合方差 (含补偿项)
     final_cov = np.zeros((2, 2))
     for k in range(rank):
-        # Formula: Sum( w' * (Sigma_cond + mu_cond * mu_cond.T) ) - mu_mix * mu_mix.T
+        # Formula: Sum( w * (Sigma_cond + mu_cond * mu_cond.T) ) - mu_mix * mu_mix.T
         final_cov += w_post[k] * (cond_covs[k] + np.outer(cond_mus[k], cond_mus[k]))
     
     final_cov -= np.outer(final_mu, final_mu)
@@ -136,19 +134,14 @@ def independent_audit():
 
     # --- 4. 打印审查报告 ---
     print(f"=== 独立第三方解析审计 (基于 NumPy/SciPy) ===")
-    print(f"后验权重 w':     {w_post}")
-    print(f"解析预期均值 Mu:  {final_mu}")
-    print(f"解析预期方差 Var: {final_var_diag}")
     print(f"解析对数似然 Prob: {np.log(np.sum(w * likelihoods)):.6f}")
-
-    return final_mu, final_var_diag
-
+    print(f"解析预期均值   Mu: {final_mu}")
+    print(f"解析预期方差  Var: {final_var_diag}")
+    print(f"后验权重        w: {w_post}")
 
 
 
 if __name__ == "__main__":
-    p, mu, var = industrial_stable_validation()
-    m, v = independent_audit()
-    print('Aha:', p, mu, var)
-    print('Gem:', m, v)
+    industrial_stable_validation()
+    independent_audit()
 
