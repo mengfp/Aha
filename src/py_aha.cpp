@@ -52,7 +52,7 @@ PYBIND11_MODULE(aha, m) {
       [](const Model& self, RowMatrixXdRef x) {
         Map<const MatrixXd> x_view(x.data(), x.cols(), x.rows());
         MatrixXd y;
-        auto r = self.BatchPredict(x, y);
+        auto r = self.BatchPredict(x_view, y);
         return py::make_tuple(r, y.transpose());
       },
       py::arg("x").noconvert())

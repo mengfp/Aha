@@ -415,10 +415,10 @@ bool FVTest() {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].get_u(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].GetU(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].get_l(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].GetL(), generators[i].L)) {
       return false;
     }
   }
@@ -465,10 +465,10 @@ bool FVTest() {
     return false;
   }
   for (int i = 0; i < RANK; i++) {
-    if (!eq(p->GetCores()[i].get_u(), generators[i].mean)) {
+    if (!eq(p->GetCores()[i].GetU(), generators[i].mean)) {
       return false;
     }
-    if (!eq(p->GetCores()[i].get_l(), generators[i].L)) {
+    if (!eq(p->GetCores()[i].GetL(), generators[i].L)) {
       return false;
     }
   }
@@ -555,9 +555,9 @@ double distance(const Model& m1, const Model& m2) {
   for (int i = 0; i < m1.Rank(); i++) {
     e = std::max(e, fabs(p1->GetWeights()[i] - p2->GetWeights()[i]));
     e = std::max(
-      e, distance(p1->GetCores()[i].get_u(), p2->GetCores()[i].get_u()));
+      e, distance(p1->GetCores()[i].GetU(), p2->GetCores()[i].GetU()));
     e = std::max(
-      e, distance(p1->GetCores()[i].get_l(), p2->GetCores()[i].get_l()));
+      e, distance(p1->GetCores()[i].GetL(), p2->GetCores()[i].GetL()));
   }
   return e;
 }

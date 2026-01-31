@@ -5,21 +5,49 @@
 #define AHA_MVN_H
 
 #include <cassert>
+#include <cmath>
 #include <cfloat>
+#include <cstring>
 #include <iostream>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <numeric>
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
+#ifdef __SSE__
 #include <xmmintrin.h>
 #include <pmmintrin.h>
+#endif
 
 #include "version.h"
 #include "generator.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327950288
+#endif
+
+#ifdef __SSE__
+// RAII class to manage floating-point state for SSE
+namespace aha {
+class FPStateScope {
+ public:
+  FPStateScope() {
+    // Save the current control register state
+    original_state = _mm_getcsr();
+    // Set flush-zero and denormals-are-zero modes
+    _mm_setcsr(original_state | _MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON);
+  }
+
+  ~FPStateScope() {
+    // Restore the original state
+    _mm_setcsr(original_state);
+  }
+
+ private:
+  unsigned int original_state;
+};
+}  // namespace aha
 #endif
 
 namespace aha {
@@ -165,15 +193,15 @@ class mvn {
   }
 
  public:
-  const VectorXd& get_u() const {
+  const VectorXd& GetU() const {
     return u;
   }
 
-  const MatrixXd& get_l() const {
+  const MatrixXd& GetL() const {
     return l;
   }
 
-  bool is_ill() const {
+  bool IsIll() const {
     return ill;
   }
 
@@ -360,7 +388,7 @@ class mix {
     // 计算条件方差
     vars.setZero(dim - k);
     for (int i = 0; i < rank; i++) {
-      auto Li = cores[i].get_l().bottomRightCorner(dim - k, dim - k);
+      auto Li = cores[i].GetL().bottomRightCorner(dim - k, dim - k);
       auto Vi = V.col(i) - y;
       vars += (Li.rowwise().squaredNorm() + Vi.cwiseAbs2()) * w(i);
     }
@@ -391,7 +419,7 @@ class mix {
     // 计算条件方差
     VARS.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
-      auto Li = cores[i].get_l().bottomRightCorner(dim - k, dim - k);
+      auto Li = cores[i].GetL().bottomRightCorner(dim - k, dim - k);
       auto Vi = V.middleCols(N * i, N) - Y;
       auto Wi = W.col(i).transpose();
       VARS += Li.rowwise().squaredNorm() * Wi;
@@ -425,7 +453,7 @@ class mix {
     VARS.setZero(dim - k, N);
     for (int i = 0; i < rank; i++) {
       auto Li =
-        cores[i].get_l().bottomRightCorner(dim - k, dim - k).cast<float>();
+        cores[i].GetL().bottomRightCorner(dim - k, dim - k).cast<float>();
       auto Vi = V.middleCols(N * i, N) - Y;
       auto Wi = W.col(i).transpose().cast<float>();
       VARS += Li.rowwise().squaredNorm() * Wi;
@@ -445,8 +473,8 @@ class mix {
     j["w"] = std::vector<double>(weights.begin(), weights.end());
     j["c"] = {};
     for (int i = 0; i < rank; i++) {
-      auto& u = cores[i].get_u();
-      auto& l = cores[i].get_l();
+      auto& u = cores[i].GetU();
+      auto& l = cores[i].GetL();
       std::vector<double> mu(u.begin(), u.end());
       std::vector<double> sigma(dim * dim);
       Map<MatrixXd>(sigma.data(), dim, dim) = l * l.transpose();
@@ -505,9 +533,9 @@ class mix {
   void Print() {
     for (int i = 0; i < rank; i++) {
       std::cout << i << ": " << weights[i] << "\n";
-      std::cout << "u:\n" << cores[i].get_u() << "\n";
+      std::cout << "u:\n" << cores[i].GetU() << "\n";
       std::cout << "s:\n"
-                << cores[i].get_l() * cores[i].get_l().transpose() << "\n\n";
+                << cores[i].GetL() * cores[i].GetL().transpose() << "\n\n";
     }
   }
 
@@ -532,10 +560,10 @@ class mix {
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      memcpy(p, cores[i].get_u().data(), sizeof(double) * dim);
+      memcpy(p, cores[i].GetU().data(), sizeof(double) * dim);
       p += sizeof(double) * dim;
       Map<MatrixXd>((double*)p, dim, dim) =
-        cores[i].get_l() * cores[i].get_l().transpose();
+        cores[i].GetL() * cores[i].GetL().transpose();
       p += sizeof(double) * dim * dim;
     }
     return output;
@@ -599,8 +627,9 @@ class trainer {
   // 添加一个样本
   void Train(Ref<const VectorXd> sample) {
     assert(sample.size() == dim);
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#ifdef __SSE__
+    FPStateScope fp_scope;
+#endif
     if (m.Initialized()) {
       VectorXd temp = VectorXd::Zero(rank);
       entropy -= m.Evaluate(sample, temp);
@@ -621,8 +650,9 @@ class trainer {
   // 批量添加样本
   void BatchTrain(Ref<const MatrixXd> samples) {
     assert(samples.rows() == dim);
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#ifdef __SSE__
+    FPStateScope fp_scope;
+#endif
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.BatchEvaluate(samples, W).sum();
@@ -643,8 +673,9 @@ class trainer {
   // 批量添加样本（单精度）
   void FastTrain(Ref<const MatrixXf> samples) {
     assert(samples.rows() == dim);
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#ifdef __SSE__
+    FPStateScope fp_scope;
+#endif
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
       entropy -= m.FastEvaluate(samples, W).sum();
