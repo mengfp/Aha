@@ -26,6 +26,7 @@ class Model {
   bool Initialized() const;
   int Rank() const;
   int Dim() const;
+  bool IsIll() const;
   double Predict(Ref<const VectorXd> x, VectorXd& y) const;
   void Sort();
   std::string Export() const;
@@ -62,6 +63,7 @@ class Trainer {
   void FastTrain(Ref<const MatrixXf> samples);
   std::vector<char> Dump() const;
   bool Load(const std::vector<char>& input, double w = 1.0);
+  bool Healthy() const;
 
  private:
   void* p;

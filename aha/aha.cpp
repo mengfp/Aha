@@ -35,6 +35,10 @@ int Model::Dim() const {
   return ((mix*)p)->Dim();
 }
 
+bool Model::IsIll() const {
+  return ((mix*)p)->IsIll();
+}
+
 double Model::Predict(Ref<const VectorXd> x, VectorXd& y) const {
   return ((mix*)p)->Predict(x, y);
 }
@@ -139,6 +143,10 @@ std::vector<char> Trainer::Dump() const {
 
 bool Trainer::Load(const std::vector<char>& input, double w) {
   return ((trainer*)p)->Load(input, w);
+}
+
+bool Trainer::Healthy() const {
+  return ((trainer*)p)->Healthy();
 }
 
 }  // namespace aha

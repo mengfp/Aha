@@ -73,7 +73,7 @@ using json = nlohmann::ordered_json;
 class mvn {
  public:
   // 构造函数
-  mvn() {
+  mvn() : ill(false) {
   }
 
   // 构造函数
@@ -226,6 +226,14 @@ class mix {
     return weights.size() > 0;
   }
 
+  // 获取病态状态
+  bool IsIll() const {
+    for (const auto& core : cores) {
+      if (core.IsIll()) return true;
+    }
+    return false;
+  }
+
   // 获取阶数
   int Rank() const {
     return rank;
@@ -247,7 +255,7 @@ class mix {
   }
 
   // 初始化
-  void Initialize(Ref<const VectorXd> weights,
+  bool Initialize(Ref<const VectorXd> weights,
                   Ref<const MatrixXd> means,
                   Ref<const MatrixXd> covs) {
     rank = (int)weights.size();
@@ -258,9 +266,13 @@ class mix {
     assert(covs.cols() == dim * rank);
     this->weights = weights;
     cores.resize(rank);
+    bool success = true;
     for (int i = 0; i < rank; i++) {
-      cores[i].Initialize(means.col(i), covs.middleCols(dim * i, dim));
+      if (!cores[i].Initialize(means.col(i), covs.middleCols(dim * i, dim))) {
+        success = false;
+      }
     }
+    return success;
   }
 
   // 计算对数概率密度和分类权重
@@ -505,7 +517,9 @@ class mix {
         }
         auto u = Map<VectorXd>(mu.data(), d);
         auto s = Map<MatrixXd>(sigma.data(), d, d);
-        c[i].Initialize(u, s);
+        if (!c[i].Initialize(u, s)) {
+          return false;
+        }
       }
       rank = r;
       dim = d;
@@ -601,7 +615,9 @@ class mix {
       p += sizeof(double) * dim;
       auto s = Map<MatrixXd>((double*)p, dim, dim);
       p += sizeof(double) * dim * dim;
-      cores[i].Initialize(u, s);
+      if (!cores[i].Initialize(u, s)) {
+        return false;
+      }
     }
     return true;
   }
@@ -780,8 +796,11 @@ class trainer {
         c.diagonal().array() += noise_floor * noise_floor;
       }
       weights /= s;
-      m.Initialize(weights, means, covs);
-      return entropy;
+      if (m.Initialize(weights, means, covs)) {
+        return entropy;
+      } else {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
     } else {
       // 随机初始化
       const double s = weights(0);
@@ -795,8 +814,12 @@ class trainer {
         means.col(i) = gen.Gen();
         covs.middleCols(dim * i, dim) = c;
       }
-      m.Initialize(weights, means, covs);
-      return std::numeric_limits<double>::infinity();
+      entropy = std::numeric_limits<double>::infinity();
+      if (m.Initialize(weights, means, covs)) {
+        return entropy;
+      } else {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
     }
   }
 
@@ -825,6 +848,11 @@ class trainer {
     weights.setZero(rank);
     means.setZero(dim, rank);
     covs.setZero(dim, dim * rank);
+  }
+
+  // 检查训练器是否健康（熵不是NaN）
+  bool Healthy() const {
+    return !std::isnan(entropy);
   }
 
   // 以二进制导出训练结果

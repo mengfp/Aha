@@ -30,6 +30,7 @@ PYBIND11_MODULE(aha, m) {
     .def("Initialized", &Model::Initialized)
     .def("Rank", &Model::Rank)
     .def("Dim", &Model::Dim)
+    .def("IsIll", &Model::IsIll)
     .def(
       "Predict",
       [](const Model& self, Ref<const VectorXd> x) {
@@ -110,7 +111,7 @@ PYBIND11_MODULE(aha, m) {
     .def(
       "Train",
       [](Trainer& self, Ref<const VectorXd> sample) {
-        return self.Train(sample);
+        self.Train(sample);
       },
       py::arg("sample"))
     .def(
@@ -134,6 +135,7 @@ PYBIND11_MODULE(aha, m) {
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0)
     .def("Reset", &Trainer::Reset)
+    .def("Healthy", &Trainer::Healthy)
     .def("Dump",
          [](const Trainer& self) {
            auto data = self.Dump();
