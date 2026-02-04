@@ -563,14 +563,10 @@ class mix {
     int size = sizeof(int) * 4 + sizeof(double) * rank * (1 + dim + dim * dim);
     std::vector<char> output(size);
     char* p = output.data();
-    *(int*)p = magic;
-    p += sizeof(int);
-    *(int*)p = version;
-    p += sizeof(int);
-    *(int*)p = rank;
-    p += sizeof(int);
-    *(int*)p = dim;
-    p += sizeof(int);
+    memcpy(p, &magic, sizeof(int)); p += sizeof(int);
+    memcpy(p, &version, sizeof(int)); p += sizeof(int);
+    memcpy(p, &rank, sizeof(int)); p += sizeof(int);
+    memcpy(p, &dim, sizeof(int)); p += sizeof(int);
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
@@ -590,15 +586,16 @@ class mix {
     }
     // 检查数据头
     const char* p = input.data();
-    if (*(int*)p != MAGIC) {
+    int magic_read;
+    memcpy(&magic_read, p, sizeof(int));
+    if (magic_read != MAGIC) {
       return false;
     }
     p += sizeof(int) * 2;
     // 读取阶数和维数
-    int r = *(int*)p;
-    p += sizeof(int);
-    int d = *(int*)p;
-    p += sizeof(int);
+    int r, d;
+    memcpy(&r, p, sizeof(int)); p += sizeof(int);
+    memcpy(&d, p, sizeof(int)); p += sizeof(int);
     // 检查字节数
     if (input.size() !=
         sizeof(double) * (r + (d + d * d) * r) + sizeof(int) * 4) {
@@ -607,13 +604,13 @@ class mix {
     // 加载模型
     rank = r;
     dim = d;
-    weights = Map<const VectorXd>((double*)p, rank);
+    weights = Map<const VectorXd>((const double*)p, rank);
     p += sizeof(double) * rank;
     cores.resize(rank);
     for (int i = 0; i < rank; i++) {
-      auto u = Map<VectorXd>((double*)p, dim);
+      auto u = Map<const VectorXd>((const double*)p, dim);
       p += sizeof(double) * dim;
-      auto s = Map<MatrixXd>((double*)p, dim, dim);
+      auto s = Map<const MatrixXd>((const double*)p, dim, dim);
       p += sizeof(double) * dim * dim;
       if (!cores[i].Initialize(u, s)) {
         return false;
@@ -861,12 +858,9 @@ class trainer {
                sizeof(double) * rank * (1 + dim + dim * dim);
     std::vector<char> output(size);
     char* p = output.data();
-    *(int*)p = rank;
-    p += sizeof(int);
-    *(int*)p = dim;
-    p += sizeof(int);
-    *(double*)p = entropy;
-    p += sizeof(double);
+    memcpy(p, &rank, sizeof(int)); p += sizeof(int);
+    memcpy(p, &dim, sizeof(int)); p += sizeof(int);
+    memcpy(p, &entropy, sizeof(double)); p += sizeof(double);
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
@@ -886,10 +880,9 @@ class trainer {
     }
     // 检查阶数和维数
     const char* p = input.data();
-    int r = *(int*)p;
-    p += sizeof(int);
-    int d = *(int*)p;
-    p += sizeof(int);
+    int r, d;
+    memcpy(&r, p, sizeof(int)); p += sizeof(int);
+    memcpy(&d, p, sizeof(int)); p += sizeof(int);
     if (r != rank || d != dim) {
       return false;
     }
@@ -899,14 +892,15 @@ class trainer {
       return false;
     }
     // 合并结果
-    entropy += w * (*(double*)p);
-    p += sizeof(double);
-    weights += w * Map<VectorXd>((double*)p, rank);
+    double e_read;
+    memcpy(&e_read, p, sizeof(double)); p += sizeof(double);
+    entropy += w * e_read;
+    weights += w * Map<const VectorXd>((const double*)p, rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
-      means.col(i) += w * Map<VectorXd>((double*)p, dim);
+      means.col(i) += w * Map<const VectorXd>((const double*)p, dim);
       p += sizeof(double) * dim;
-      covs.middleCols(dim * i, dim) += w * Map<MatrixXd>((double*)p, dim, dim);
+      covs.middleCols(dim * i, dim) += w * Map<const MatrixXd>((const double*)p, dim, dim);
       p += sizeof(double) * dim * dim;
     }
     return true;
