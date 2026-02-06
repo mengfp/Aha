@@ -149,4 +149,8 @@ bool Trainer::Healthy() const {
   return ((trainer*)p)->Healthy();
 }
 
+void Trainer::SetInitMethod(int method) {
+  static_cast<aha::trainer*>(p)->SetInitMethod(method);
+}
+
 }  // namespace aha

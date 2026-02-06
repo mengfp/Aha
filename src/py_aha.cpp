@@ -132,6 +132,7 @@ PYBIND11_MODULE(aha, m) {
       py::arg("samples").noconvert())
     .def("Merge", &Trainer::Merge, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Spit", &Trainer::Spit)
+    .def("SetInitMethod", &Trainer::SetInitMethod, py::arg("method"))
     .def("Swallow", &Trainer::Swallow, py::arg("trainer"), py::arg("w") = 1.0)
     .def("Update", &Trainer::Update, py::arg("noise_floor") = 0.0)
     .def("Reset", &Trainer::Reset)

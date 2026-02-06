@@ -12,6 +12,8 @@
 #include <limits>
 #include <nlohmann/json.hpp>
 #include <numeric>
+#include <random>
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
@@ -632,9 +634,14 @@ class mix {
 class trainer {
  public:
   // 构造函数
-  trainer(mix& m) : m(m), rank(m.Rank()), dim(m.Dim()) {
+  trainer(mix& m) : m(m), rank(m.Rank()), dim(m.Dim()), init_method(0) {
     assert(rank > 0 && dim > 0);
     Reset();
+  }
+
+  // 设置初始化方法
+  void SetInitMethod(int method) {
+    init_method = method;
   }
 
   // 添加一个样本
@@ -793,11 +800,6 @@ class trainer {
         c.diagonal().array() += noise_floor * noise_floor;
       }
       weights /= s;
-      if (m.Initialize(weights, means, covs)) {
-        return entropy;
-      } else {
-        return std::numeric_limits<double>::quiet_NaN();
-      }
     } else {
       // 随机初始化
       const double s = weights(0);
@@ -805,18 +807,55 @@ class trainer {
       MatrixXd c = covs.leftCols(dim) / s;
       c.selfadjointView<Lower>().rankUpdate(u, -1.0);
       c.diagonal().array() += noise_floor * noise_floor;
-      MVNGenerator gen(u, c);
-      for (int i = 0; i < rank; i++) {
-        weights(i) = 1.0 / rank;
-        means.col(i) = gen.Gen();
-        covs.middleCols(dim * i, dim) = c;
+      if (init_method == 1) {
+        const VectorXd global_mean = u;
+        const VectorXd global_variances = c.diagonal();
+        MatrixXd component_variances(dim, rank);
+        if (rank > 1) {
+          VectorXd ratios(rank);
+          const double min_ratio = 0.1;
+          const double max_ratio = 1.9;
+          const double step = (max_ratio - min_ratio) / (rank - 1);
+          for (int i = 0; i < rank; ++i) {
+            ratios(i) = min_ratio + i * step;
+          }
+          component_variances = global_variances * ratios.transpose();
+          for (int d = 0; d < dim; ++d) {
+            if (global_variances(d) <= 0.0) {
+              component_variances.row(d).setConstant(global_variances(d));
+            }
+          }
+          std::vector<int> indices(rank);
+          std::iota(indices.begin(), indices.end(), 0);
+          std::mt19937 g((std::random_device())());
+          for (int d = 0; d < dim; ++d) {
+            std::shuffle(indices.begin(), indices.end(), g);
+            component_variances.row(d) = component_variances.row(d)(indices);
+          }
+        } else {
+          component_variances = global_variances;
+        }
+
+        for (int i = 0; i < rank; i++) {
+          weights(i) = 1.0 / rank;
+          means.col(i) = global_mean;
+          covs.middleCols(dim * i, dim) =
+            component_variances.col(i).asDiagonal();
+        }
+      } else {
+        MVNGenerator gen(u, c);
+        for (int i = 0; i < rank; i++) {
+          weights(i) = 1.0 / rank;
+          means.col(i) = gen.Gen();
+          covs.middleCols(dim * i, dim) = c;
+        }
       }
       entropy = std::numeric_limits<double>::infinity();
-      if (m.Initialize(weights, means, covs)) {
-        return entropy;
-      } else {
-        return std::numeric_limits<double>::quiet_NaN();
-      }
+    }
+    if (m.Initialize(weights, means, covs)) {
+      return entropy;
+    } else {
+      return std::numeric_limits<double>::quiet_NaN();
     }
   }
 
@@ -914,6 +953,7 @@ class trainer {
   VectorXd weights;
   MatrixXd means;
   MatrixXd covs;
+  int init_method;
 };
 
 }  // namespace aha

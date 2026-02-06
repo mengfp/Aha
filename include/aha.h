@@ -64,6 +64,7 @@ class Trainer {
   std::vector<char> Dump() const;
   bool Load(const std::vector<char>& input, double w = 1.0);
   bool Healthy() const;
+  void SetInitMethod(int method);
 
  private:
   void* p;
