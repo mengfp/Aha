@@ -145,6 +145,7 @@ class mvn {
 
   // 计算对数边缘概率密度
   double PartialEvaluate(Ref<const VectorXd> x) const {
+    assert(x.size() > 0);
     assert(x.size() <= u.size());
     auto k = x.size();
     return -0.5 * l.topLeftCorner(k, k)
@@ -156,6 +157,7 @@ class mvn {
 
   // 计算对数边缘概率密度和条件期望
   double Predict(Ref<const VectorXd> x, Ref<VectorXd> y) const {
+    assert(x.size() > 0);
     assert(x.size() + y.size() == u.size());
     auto n = u.size();
     auto k = x.size();
@@ -168,6 +170,7 @@ class mvn {
   // 批量计算对数边缘概率密度和条件期望
   VectorXd BatchPredict(Ref<const MatrixXd> X, Ref<MatrixXd> Y) const {
     assert(X.cols() == Y.cols());
+    assert(X.rows() > 0);
     assert(X.rows() + Y.rows() == u.size());
     auto n = u.size();
     auto k = X.rows();
@@ -181,6 +184,7 @@ class mvn {
   // 批量计算对数边缘概率密度和条件期望（单精度）
   VectorXd FastPredict(Ref<const MatrixXf> X, Ref<MatrixXf> Y) const {
     assert(X.cols() == Y.cols());
+    assert(X.rows() > 0);
     assert(X.rows() + Y.rows() == u.size());
     auto n = u.size();
     auto k = X.rows();
@@ -324,6 +328,7 @@ class mix {
 
   // 计算对数边缘概率密度和条件期望
   double Predict(Ref<const VectorXd> x, VectorXd& y) const {
+    assert((int)x.size() > 0);
     assert((int)x.size() < dim);
     const int k = (int)x.size();
     VectorXd w = VectorXd::Zero(rank);
@@ -342,6 +347,7 @@ class mix {
 
   // 批量计算对数边缘概率密度和条件期望
   VectorXd BatchPredict(Ref<const MatrixXd> X, MatrixXd& Y) const {
+    assert((int)X.rows() > 0);
     assert((int)X.rows() < dim);
     const int k = (int)X.rows();
     const int N = (int)X.cols();
@@ -364,6 +370,7 @@ class mix {
 
   // 计算对数边缘概率密度和条件期望（单精度）
   VectorXd FastPredict(Ref<const MatrixXf> X, MatrixXf& Y) const {
+    assert((int)X.rows() > 0);
     assert((int)X.rows() < dim);
     const int k = (int)X.rows();
     const int N = (int)X.cols();
@@ -386,6 +393,7 @@ class mix {
 
   // 计算条件期望和条件方差（协方差矩阵的主对角线）
   double PredictEx(Ref<const VectorXd> x, VectorXd& y, VectorXd& vars) const {
+    assert((int)x.size() > 0);
     assert((int)x.size() < dim);
     const int k = (int)x.size();
     VectorXd w = VectorXd::Zero(rank);
@@ -413,6 +421,7 @@ class mix {
   VectorXd BatchPredictEx(Ref<const MatrixXd> X,
                           MatrixXd& Y,
                           MatrixXd& VARS) const {
+    assert((int)X.rows() > 0);
     assert((int)X.rows() < dim);
     const int k = (int)X.rows();
     const int N = (int)X.cols();
@@ -446,6 +455,7 @@ class mix {
   VectorXd FastPredictEx(Ref<const MatrixXf> X,
                          MatrixXf& Y,
                          MatrixXf& VARS) const {
+    assert((int)X.rows() > 0);
     assert((int)X.rows() < dim);
     const int k = (int)X.rows();
     const int N = (int)X.cols();
