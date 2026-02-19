@@ -32,7 +32,7 @@ def train(df, rank, loop):
         for row in df.to_numpy():
             trainer.Train(row)
         e = trainer.Update()
-        print(i, ': entropy =', e)
+        print(i, ': likelihood =', e)
     return model
 
 # 训练模型
@@ -47,7 +47,7 @@ def batch_train(df, rank, loop):
         trainer.Reset()
         trainer.BatchTrain(df.to_numpy())
         e = trainer.Update()
-        print(i, ': entropy =', e)
+        print(i, ': likelihood =', e)
     return model
 
 # 测试模型性能，计算均方误差

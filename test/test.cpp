@@ -110,8 +110,8 @@ bool TestTrain() {
       gen.Gen(sample);
       train.Train(sample);
     }
-    auto entropy = train.Update();
-    std::cout << "Entropy = " << entropy << std::endl;
+    auto likelihood = train.Update();
+    std::cout << "Likelihood = " << likelihood << std::endl;
   }
 
   std::cout << "Generator:" << std::endl;
@@ -143,7 +143,7 @@ bool TestAha() {
       trainer.Train(sample);
     }
     auto e = trainer.Update();
-    std::cout << "Entropy = " << e << std::endl;
+    std::cout << "Likelihood = " << e << std::endl;
   }
 
   // Test predict
@@ -185,7 +185,7 @@ bool TestNonLinear() {
       trainer.Train(samples.col(j));
     }
     auto e = trainer.Update();
-    std::cout << i << ": Entropy = " << e << std::endl;
+    std::cout << i << ": Likelihood = " << e << std::endl;
   }
   std::cout << "Train time = "
             << duration<double>(steady_clock::now() - now).count() << std::endl;
@@ -229,7 +229,7 @@ bool TestMVNGenerator() {
       t.Train(sample);
     }
     auto e = t.Update();
-    std::cout << "Entropy = " << e << std::endl;
+    std::cout << "Likelihood = " << e << std::endl;
   }
   t.Print();
   return true;

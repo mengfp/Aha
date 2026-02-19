@@ -662,7 +662,7 @@ class trainer {
 #endif
     if (m.Initialized()) {
       VectorXd temp = VectorXd::Zero(rank);
-      entropy -= m.Evaluate(sample, temp);
+      likelihood += m.Evaluate(sample, temp);
       weights += temp;
       means += sample * temp.transpose();
       for (int i = 0; i < rank; i++) {
@@ -685,7 +685,7 @@ class trainer {
 #endif
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
-      entropy -= m.BatchEvaluate(samples, W).sum();
+      likelihood += m.BatchEvaluate(samples, W).sum();
       weights += W.colwise().sum();
       means += samples * W;
       MatrixXd temp = MatrixXd::Zero(samples.rows(), samples.cols());
@@ -708,7 +708,7 @@ class trainer {
 #endif
     if (m.Initialized()) {
       MatrixXd W = MatrixXd::Zero(samples.cols(), rank);
-      entropy -= m.FastEvaluate(samples, W).sum();
+      likelihood += m.FastEvaluate(samples, W).sum();
       weights += W.colwise().sum();
       means += (samples * W.cast<float>()).cast<double>();
       MatrixXf temp = MatrixXf::Zero(samples.rows(), samples.cols());
@@ -731,7 +731,7 @@ class trainer {
     if (t.rank != rank || t.dim != dim) {
       return false;
     }
-    entropy += w * t.entropy;
+    likelihood += w * t.likelihood;
     weights += w * t.weights;
     means += w * t.means;
     covs += w * t.covs;
@@ -743,7 +743,7 @@ class trainer {
     json j;
     j["r"] = rank;
     j["d"] = dim;
-    j["e"] = entropy;
+    j["l"] = likelihood;
     j["w"] = std::vector<double>(weights.begin(), weights.end());
     j["m"] = {};
     j["c"] = {};
@@ -777,7 +777,7 @@ class trainer {
       if ((int)j["c"].size() != rank) {
         return false;
       }
-      entropy += w * (double)j["e"];
+      likelihood += w * (double)j["l"];
       for (int i = 0; i < rank; i++) {
         weights(i) += w * (double)j["w"][i];
         std::vector<double> m = j["m"][i];
@@ -801,7 +801,7 @@ class trainer {
   double Update(double noise_floor = 0.0) {
     if (m.Initialized()) {
       double s = weights.sum();
-      entropy /= s;
+      likelihood /= s;
       means.array().rowwise() /= weights.transpose().array();
       for (int i = 0; i < rank; i++) {
         Ref<MatrixXd> c = covs.middleCols(dim * i, dim);
@@ -860,10 +860,10 @@ class trainer {
           covs.middleCols(dim * i, dim) = c;
         }
       }
-      entropy = std::numeric_limits<double>::infinity();
+      likelihood = -std::numeric_limits<double>::infinity();
     }
     if (m.Initialize(weights, means, covs)) {
-      return entropy;
+      return likelihood;
     } else {
       return std::numeric_limits<double>::quiet_NaN();
     }
@@ -890,15 +890,15 @@ class trainer {
 
   // 清空记忆
   void Reset() {
-    entropy = 0;
+    likelihood = 0;
     weights.setZero(rank);
     means.setZero(dim, rank);
     covs.setZero(dim, dim * rank);
   }
 
-  // 检查训练器是否健康（熵不是NaN）
+  // 检查训练器是否健康
   bool Healthy() const {
-    return !std::isnan(entropy);
+    return !std::isnan(likelihood);
   }
 
   // 以二进制导出训练结果
@@ -909,7 +909,7 @@ class trainer {
     char* p = output.data();
     memcpy(p, &rank, sizeof(int)); p += sizeof(int);
     memcpy(p, &dim, sizeof(int)); p += sizeof(int);
-    memcpy(p, &entropy, sizeof(double)); p += sizeof(double);
+    memcpy(p, &likelihood, sizeof(double)); p += sizeof(double);
     memcpy(p, weights.data(), sizeof(double) * rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
@@ -941,9 +941,9 @@ class trainer {
       return false;
     }
     // 合并结果
-    double e_read;
-    memcpy(&e_read, p, sizeof(double)); p += sizeof(double);
-    entropy += w * e_read;
+    double l;
+    memcpy(&l, p, sizeof(double)); p += sizeof(double);
+    likelihood += w * l;
     weights += w * Map<const VectorXd>((const double*)p, rank);
     p += sizeof(double) * rank;
     for (int i = 0; i < rank; i++) {
@@ -959,7 +959,7 @@ class trainer {
   mix& m;
   int rank;
   int dim;
-  double entropy;
+  double likelihood;
   VectorXd weights;
   MatrixXd means;
   MatrixXd covs;

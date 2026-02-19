@@ -33,7 +33,7 @@ def train(df, rank, loop):
         trainer.Reset()
         trainer.BatchTrain(df.to_numpy())
         e = trainer.Update()
-        print(i, ': entropy =', e)
+        print(i, ': likelihood =', e)
     return model
 
 # 测试模型性能，计算均方误差
